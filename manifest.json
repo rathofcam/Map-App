@@ -1,11 +1,13 @@
 {
   "name": "Map App",
   "short_name": "Map App",
-  "start_url": "index.html",
+  "description": "High-detail world generation and civilization simulator featuring supercells and dynamic biomes.",
+  "start_url": "/Map-App/index.html",
+  "scope": "/Map-App/",
   "display": "standalone",
   "background_color": "#111111",
   "theme_color": "#00ff00",
-  "orientation": "landscape",
+  "orientation": "any",
   "icons": [
     {
       "src": "icon-512.png",
