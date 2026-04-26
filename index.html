@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="manifest" href="https://rathofcam.github.io/Map-App/game/manifest.json">
-    <title>Map App</title>
+    <title>Map App - Storm Chaser</title>
     <style>
         :root { --neon: #0f0; --bg: #111; }
         body { margin: 0; font-family: 'Segoe UI', sans-serif; overflow: hidden; background: var(--bg); display: flex; justify-content: center; align-items: center; height: 100vh; touch-action: none; }
@@ -23,11 +23,15 @@
 </head>
 <body>
 
+<audio id="boopSound" src="99219__mtadder__boop2.wav"></audio>
+<audio id="windSound" src="2690__anton__wind1.wav" loop></audio>
+<audio id="blackHoleSound" src="19hz_sound.wav" loop></audio>
+
 <div class="ui-layer">
     <div class="panel">
         <button onclick="openConfig()">🏗️ Architect</button>
         <button onclick="spawnDweller()">👥 Add Dweller</button>
-        <button onclick="spawnCloud()" style="border-color:#aaa; color:#fff;">☁️ Weather</button>
+        <button onclick="spawnWeather()" style="border-color:#aaa; color:#fff;">☁️ Weather</button>
         <button onclick="wipeWorld()" style="border-color:#ffa500; color:#ffa500;">🧹 WIPE</button>
         <button onclick="generate()" style="border-color:#f00; color:#f00;">♻️ Reset</button>
     </div>
@@ -48,15 +52,6 @@
 <div id="infoBar">POPULATION: 0 | BUILDINGS: 0 | AGE: STONE</div>
 
 <script>
-// SERVICE WORKER REGISTRATION
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('https://rathofcam.github.io/Map-App/game/sw.js')
-    .then(reg => console.log('SW Registered in /game/'))
-    .catch(err => console.log('SW failed', err));
-  });
-}
-
 const MAP_SIZE = 500;
 const TILE_SIZE = 5;
 const canvas = document.getElementById("mainCanvas");
@@ -69,7 +64,7 @@ mapCanvas.width = MAP_SIZE; mapCanvas.height = MAP_SIZE;
 
 let h1, d1, m1;
 let dwellers = [], hovels = [];
-let activeWeather = { tornadoes: [] };
+let weatherSystems = [];
 let initialized = false;
 let worldTick = 0;
 
@@ -166,52 +161,97 @@ function drawBuilding(h) {
 
 function updateWeather() {
     worldTick++;
-    activeWeather.tornadoes.forEach((t, idx) => {
-        t.x += (Math.random()-0.5)*3; t.y += (Math.random()-0.5)*3; t.life--;
-        // Tornadoes destroy buildings
-        if(t.type === 'tornado') hovels = hovels.filter(h => Math.hypot(h.x-t.x, h.y-t.y) > 25);
-        if (t.life <= 0) activeWeather.tornadoes.splice(idx, 1);
+    const wind = document.getElementById("windSound");
+    let hasTornado = weatherSystems.some(s => s.type === 'tornado');
+    
+    if (hasTornado) {
+        if (wind.paused) wind.play().catch(()=>{});
+    } else {
+        wind.pause();
+    }
+
+    weatherSystems.forEach((s, idx) => {
+        s.x += (Math.random()-0.5)*2; 
+        s.y += (Math.random()-0.5)*2; 
+        s.life--;
+
+        if (s.type === 'tornado') {
+            hovels = hovels.filter(h => Math.hypot(h.x-s.x, h.y-s.y) > 20);
+        }
+
+        // Tornadic Supercell Logic
+        if (s.type === 'supercell' && s.tornadic && worldTick % 100 === 0) {
+            if (Math.random() < 0.2) {
+                weatherSystems.push({x: s.x, y: s.y, type: 'tornado', life: 400});
+            }
+        }
+
+        if (s.life <= 0) weatherSystems.splice(idx, 1);
     });
 }
 
-function drawWeather() { 
-    activeWeather.tornadoes.forEach(t => { 
-        ctx.save();
-        ctx.translate(t.x, t.y);
-        
-        if (t.type === 'tornado') {
-            // Spinning Tornado Core
-            for(let i=0; i<6; i++) {
-                let shift = Math.sin(worldTick * 0.2 + i) * 5;
-                let size = 25 - (i * 3);
-                ctx.fillStyle = `rgba(100, 100, 100, ${0.1 + (i*0.1)})`;
-                ctx.beginPath();
-                ctx.ellipse(shift, -i*4, size, size/2, Math.sin(worldTick*0.1), 0, Math.PI*2);
-                ctx.fill();
-            }
-        } else {
-            // Fluffy Cloud
-            ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
-            for(let i=0; i<5; i++) {
-                ctx.beginPath();
-                let ox = Math.cos(i * 1.2) * 10;
-                let oy = Math.sin(i * 1.2) * 5;
-                ctx.arc(ox, oy, 12, 0, Math.PI*2);
-                ctx.fill();
-            }
-        }
-        ctx.restore();
-    }); 
+function updateBlackHoleSound() {
+    const hum = document.getElementById("blackHoleSound");
+    if (initialized && dwellers.length === 0 && hovels.length === 0) {
+        if (hum.paused) hum.play().catch(()=>{});
+    } else {
+        hum.pause();
+    }
 }
 
-function spawnCloud() { 
-    const isStorm = Math.random() > 0.5;
-    activeWeather.tornadoes.push({
+function drawWeather() {
+    weatherSystems.forEach(s => {
+        ctx.save();
+        ctx.translate(s.x, s.y);
+        
+        if (s.type === 'fog') {
+            ctx.fillStyle = "rgba(200, 200, 200, 0.2)";
+            ctx.beginPath(); ctx.arc(0, 0, 40, 0, Math.PI*2); ctx.fill();
+        } 
+        else if (s.type === 'cloud') {
+            ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+            ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI*2); ctx.arc(10, -5, 12, 0, Math.PI*2); ctx.arc(-10, -5, 10, 0, Math.PI*2); ctx.fill();
+        } 
+        else if (s.type === 'rain' || s.type === 'thunder') {
+            ctx.fillStyle = s.type === 'rain' ? "#888" : "#444";
+            ctx.beginPath(); ctx.arc(0, 0, 20, 0, Math.PI*2); ctx.arc(15, -5, 15, 0, Math.PI*2); ctx.arc(-15, -5, 15, 0, Math.PI*2); ctx.fill();
+            // Rain streaks
+            ctx.strokeStyle = "rgba(150, 150, 150, 0.4)";
+            for(let i=0; i<5; i++) {
+                let rx = -20 + Math.random()*40;
+                ctx.beginPath(); ctx.moveTo(rx, 10); ctx.lineTo(rx, 30); ctx.stroke();
+            }
+        } 
+        else if (s.type === 'supercell') {
+            ctx.fillStyle = "#222";
+            ctx.beginPath(); ctx.arc(0, 0, 35, 0, Math.PI*2); ctx.arc(20, -10, 30, 0, Math.PI*2); ctx.arc(-20, -10, 30, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = "#000";
+            ctx.beginPath(); ctx.arc(0, -20, 25, 0, Math.PI*2); ctx.fill();
+        }
+        else if (s.type === 'tornado') {
+            // Pretty grayscale layered tornado (non-spinning)
+            ctx.fillStyle = "rgba(80, 80, 80, 0.5)";
+            ctx.beginPath(); ctx.moveTo(-25, -40); ctx.lineTo(25, -40); ctx.lineTo(5, 5); ctx.lineTo(-5, 5); ctx.fill();
+            ctx.fillStyle = "rgba(40, 40, 40, 0.7)";
+            ctx.beginPath(); ctx.moveTo(-15, -30); ctx.lineTo(15, -30); ctx.lineTo(2, 5); ctx.lineTo(-2, 5); ctx.fill();
+            ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+            ctx.beginPath(); ctx.ellipse(0, 5, 15, 5, 0, 0, Math.PI*2); ctx.fill();
+        }
+        ctx.restore();
+    });
+}
+
+function spawnWeather() {
+    const types = ['fog', 'cloud', 'rain', 'thunder', 'supercell'];
+    let type = types[Math.floor(Math.random()*types.length)];
+    let tornadic = (type === 'supercell' && Math.random() < 0.125); // 1 in 8
+    weatherSystems.push({
         x: Math.random()*MAP_SIZE, 
         y: Math.random()*MAP_SIZE, 
-        life: 800, 
-        type: isStorm ? 'tornado' : 'cloud'
-    }); 
+        type: type, 
+        tornadic: tornadic,
+        life: 800
+    });
 }
 
 function updateInfoBar() {
@@ -222,7 +262,7 @@ function updateInfoBar() {
 
 function generate() {
     h1 = new NoiseLayer(); d1 = new NoiseLayer(); m1 = new NoiseLayer();
-    dwellers = []; hovels = [];
+    dwellers = []; hovels = []; weatherSystems = [];
     mctx.fillStyle = "#000"; mctx.fillRect(0,0,MAP_SIZE, MAP_SIZE);
     for(let x=0; x<MAP_SIZE; x+=TILE_SIZE) { for(let y=0; y<MAP_SIZE; y+=TILE_SIZE) { mctx.fillStyle = BiomeColors[getBiome(x, y)]; mctx.fillRect(x, y, TILE_SIZE, TILE_SIZE); } }
     let startPop = document.getElementById('popCfg').value;
@@ -230,18 +270,31 @@ function generate() {
     initialized = true;
 }
 
-function spawnDweller() { dwellers.push(new Dweller(250, 250)); }
+function spawnDweller() { 
+    dwellers.push(new Dweller(250, 250)); 
+    const boop = document.getElementById("boopSound");
+    boop.currentTime = 0;
+    boop.play().catch(()=>{});
+}
+
 function openConfig() { document.getElementById('worldConfig').style.display = 'block'; }
 function closeConfig() { document.getElementById('worldConfig').style.display = 'none'; }
-function wipeWorld() { hovels = []; dwellers = []; activeWeather.tornadoes = []; }
+function wipeWorld() { hovels = []; dwellers = []; weatherSystems = []; }
 
 function draw() {
-    if (initialized) { ctx.drawImage(mapCanvas, 0, 0); hovels.forEach(drawBuilding); dwellers.forEach(d => { d.update(); d.draw(); }); updateWeather(); drawWeather(); updateInfoBar(); }
+    if (initialized) { 
+        ctx.drawImage(mapCanvas, 0, 0); 
+        hovels.forEach(drawBuilding); 
+        dwellers.forEach(d => { d.update(); d.draw(); }); 
+        updateWeather(); 
+        updateBlackHoleSound();
+        drawWeather(); 
+        updateInfoBar(); 
+    }
     requestAnimationFrame(draw);
 }
 generate(); draw();
 </script>
 </body>
 </html>
-
 
