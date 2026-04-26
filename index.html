@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="manifest.json">
+    <title>Map App</title>
+    <style>
+        :root { --neon: #0f0; --bg: #111; }
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; overflow: hidden; background: var(--bg); display: flex; justify-content: center; align-items: center; height: 100vh; touch-action: none; }
+        .ui-layer { position: absolute; top: 0; left: 0; z-index: 10; width: 100%; pointer-events: none; }
+        .panel { background: rgba(0,0,0,0.9); color: var(--neon); padding: 12px; pointer-events: auto; border-bottom: 2px solid #444; display: flex; gap: 8px; flex-wrap: wrap; }
+        .config-panel { background: rgba(10, 10, 10, 0.98); border: 1px solid var(--neon); color: var(--neon); padding: 20px; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000; border-radius: 8px; pointer-events: auto; box-shadow: 0 0 30px rgba(0,255,0,0.2); max-height: 80vh; overflow-y: auto; width: 280px; }
+        .config-row { margin: 15px 0; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+        input[type=range] { width: 100px; accent-color: var(--neon); }
+        button { cursor: pointer; padding: 8px 12px; background: #111; color: var(--neon); border: 1px solid var(--neon); font-size: 11px; border-radius: 4px; font-weight: bold; text-transform: uppercase; }
+        button:hover { background: var(--neon); color: #000; }
+        canvas { border: 2px solid #333; background: #000; cursor: crosshair; max-width: 100vw; max-height: 80vh; image-rendering: pixelated; }
+        #infoBar { position: fixed; bottom: 0; width: 100%; background: rgba(0,0,0,0.9); color: var(--neon); padding: 10px; font-family: monospace; border-top: 1px solid #333; font-size: 11px; text-align: center; }
+    </style>
+</head>
+<body>
+
+<div class="ui-layer">
+    <div class="panel">
+        <button onclick="openConfig()">🏗️ Architect</button>
+        <button onclick="spawnDweller()">👥 Add Dweller</button>
+        <button onclick="spawnCloud()" style="border-color:#aaa; color:#fff;">☁️ Cloud</button>
+        <button onclick="wipeWorld()" style="border-color:#ffa500; color:#ffa500;">🧹 WIPE</button>
+        <button onclick="generate()" style="border-color:#f00; color:#f00;">♻️ Reset</button>
+    </div>
+</div>
+
+<div id="worldConfig" class="config-panel" style="display:none;">
+    <h2 style="margin-top:0; font-size: 18px;">EVOLUTION VARS</h2>
+    <div class="config-row"><span>POPULATION</span><input type="range" id="popCfg" min="10" max="1000" value="200"></div>
+    <div class="config-row"><span>WATER</span><input type="range" id="waterCfg" min="0" max="100" value="45"></div>
+    <div class="config-row"><span>MOISTURE</span><input type="range" id="moistCfg" min="0" max="100" value="50"></div>
+    <div class="config-row"><span>COLD</span><input type="range" id="coldCfg" min="0" max="100" value="20"></div>
+    <div class="config-row"><span>DANGER</span><input type="range" id="dangerCfg" min="0" max="100" value="15"></div>
+    <button onclick="generate()" style="width:100%; margin-top:10px;">RE-INITIALIZE</button>
+    <button onclick="closeConfig()" style="width:100%; margin-top:5px; border-color:#666; color:#666;">CLOSE</button>
+</div>
+
+<canvas id="mainCanvas"></canvas>
+<div id="infoBar">POPULATION: 0 | BUILDINGS: 0 | AGE: STONE</div>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(err => console.log('SW failed', err));
+  });
+}
+
+const MAP_SIZE = 500;
+const TILE_SIZE = 5;
+const canvas = document.getElementById("mainCanvas");
+const ctx = canvas.getContext("2d");
+canvas.width = MAP_SIZE; canvas.height = MAP_SIZE;
+
+const mapCanvas = document.createElement('canvas');
+const mctx = mapCanvas.getContext('2d');
+mapCanvas.width = MAP_SIZE; mapCanvas.height = MAP_SIZE;
+
+let h1, d1, m1;
+let dwellers = [], hovels = [];
+let activeWeather = { tornadoes: [] };
+let initialized = false;
+let worldTick = 0;
+
+const BiomeColors = {
+    "Deep Ocean": "#000033", "Ocean": "#1a75ff", "Coral Reef": "#00d4ff", "Beach": "#f2d16b",
+    "Plains": "#567d46", "Flower Fields": "#ff69b4", "Forest": "#134e13", "Jungle": "#228b22",
+    "Desert": "#edc9af", "Wasteland": "#4d4d4d", "Volcanic": "#610000", "Snow": "#ffffff",
+    "Ice": "#a5f2f3", "Turd Mountain": "#4b3621"
+};
+
+class NoiseLayer {
+    constructor() {
+        this.p = new Uint8Array(512);
+        const perm = Array.from({length: 256}, (_, i) => i).sort(() => Math.random() - 0.5);
+        for(let i=0; i<256; i++) this.p[i] = this.p[i+256] = perm[i];
+    }
+    fade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+    lerp(t, a, b) { return a + t * (b - a); }
+    grad(hash, x, y) {
+        const h = hash & 15;
+        const u = h < 8 ? x : y;
+        const v = h < 4 ? y : h === 12 || h === 14 ? x : 0;
+        return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
+    }
+    get(x, y) {
+        let X = Math.floor(x) & 255, Y = Math.floor(y) & 255;
+        x -= Math.floor(x); y -= Math.floor(y);
+        let u = this.fade(x), v = this.fade(y);
+        let aa = this.p[this.p[X] + Y], ab = this.p[this.p[X] + Y + 1];
+        let ba = this.p[this.p[X + 1] + Y], bb = this.p[this.p[X + 1] + Y + 1];
+        return this.lerp(v, this.lerp(u, this.grad(aa, x, y), this.grad(ba, x-1, y)), 
+                            this.lerp(u, this.grad(ab, x, y-1), this.grad(bb, x-1, y-1)));
+    }
+}
+
+function getBiome(x, y) {
+    if (!h1) return "Void";
+    const danger = document.getElementById('dangerCfg').value / 100;
+    const waterLevel = (document.getElementById('waterCfg').value - 50) / 100;
+    const moistureOffset = (document.getElementById('moistCfg').value - 50) / 100;
+    const coldLevel = (document.getElementById('coldCfg').value - 50) / 100;
+    let e = h1.get(x/180, y/180) - waterLevel; 
+    let m = m1.get(x/150, y/150) + moistureOffset; 
+    let d = d1.get(x/100, y/100) + (danger * 0.5); 
+    if (e > 0.3 && d > 0.4 && m < -0.1) return "Turd Mountain";
+    if (e < -0.3) return "Deep Ocean";
+    if (e < -0.15) return "Ocean";
+    if (e < -0.05) return "Coral Reef";
+    if (e < 0.02) return "Beach";
+    if (e + coldLevel > 0.4) return "Snow";
+    if (e + coldLevel > 0.3 && d < 0.1) return "Ice";
+    if (d > 0.6) return "Volcanic";
+    if (d > 0.4 && m < -0.2) return "Wasteland";
+    if (d > 0.2 && m < -0.3) return "Desert";
+    if (m > 0.4) return "Jungle";
+    if (m > 0.2) return "Forest";
+    if (m > 0.05) return "Flower Fields";
+    return "Plains";
+}
+
+function isWater(x, y) { return ["Deep Ocean", "Ocean", "Coral Reef"].includes(getBiome(x, y)); }
+
+class Dweller {
+    constructor(x, y) { this.x = x; this.y = y; this.color = `hsl(${Math.random()*360}, 70%, 60%)`; this.buildingsCreated = 0; }
+    update() {
+        let nx = this.x + (Math.random()-0.5)*4, ny = this.y + (Math.random()-0.5)*4;
+        if (isWater(nx, ny)) { nx = this.x; ny = this.y; }
+        this.x = Math.max(5, Math.min(MAP_SIZE-5, nx)); this.y = Math.max(5, Math.min(MAP_SIZE-5, ny));
+        if(this.buildingsCreated < 2 && Math.random() < 0.005 && !isWater(this.x, this.y)) { this.build(); this.buildingsCreated++; }
+    }
+    build() {
+        let type = 'house'; let biome = getBiome(this.x, this.y); let count = hovels.length;
+        if (biome === "Turd Mountain") type = 'stinkshack';
+        else if (count >= 7500) { let r = Math.random(); if (r < 0.05) type = 'nuclear'; else if (r < 0.15) type = 'school'; else if (r < 0.4) type = 'factory'; else type = 'apartment'; } 
+        else if (count >= 1500) { let r = Math.random(); if (r < 0.2) type = 'factory'; else if (r < 0.5) type = 'apartment'; else type = 'house'; }
+        else if (count >= 10) { let r = Math.random(); if (r < 0.1) type = 'townhall'; else if (r < 0.2 && (biome === "Plains" || biome === "Flower Fields")) type = 'windmill'; else type = 'house'; }
+        hovels.push({x: this.x, y: this.y, type: type, color: this.color});
+    }
+    draw() { ctx.fillStyle = this.color; ctx.fillRect(this.x-1, this.y-1.5, 2, 3); }
+}
+
+function drawBuilding(h) {
+    ctx.save(); ctx.translate(h.x, h.y);
+    if (h.type === 'house') { ctx.fillStyle = h.color; ctx.fillRect(-2, -2, 4, 4); ctx.fillStyle = "#333"; ctx.beginPath(); ctx.moveTo(-3, -2); ctx.lineTo(0, -5); ctx.lineTo(3, -2); ctx.fill(); } 
+    else if (h.type === 'stinkshack') { ctx.fillStyle = "#634"; ctx.fillRect(-2, -1, 4, 3); ctx.fillStyle = "#fb0"; ctx.fillRect(-0.5, -0.5, 1, 1); }
+    else if (h.type === 'townhall') { ctx.fillStyle = "white"; ctx.fillRect(-4, -4, 8, 8); ctx.fillStyle = "blue"; ctx.fillRect(-4, -4, 8, 2); }
+    else if (h.type === 'windmill') { ctx.fillStyle = "#aaa"; ctx.fillRect(-0.5, -4, 1, 8); ctx.strokeStyle = "white"; ctx.lineWidth = 0.5; let rot = worldTick * 0.1; ctx.beginPath(); for(let i=0; i<4; i++) { ctx.moveTo(0, -4); ctx.lineTo(Math.cos(rot + i*Math.PI/2)*5, -4 + Math.sin(rot + i*Math.PI/2)*5); } ctx.stroke(); }
+    else if (h.type === 'factory') { ctx.fillStyle = "#555"; ctx.fillRect(-4, -2, 8, 5); ctx.fillStyle = "#222"; ctx.fillRect(1, -6, 2, 5); }
+    else if (h.type === 'apartment') { ctx.fillStyle = "#888"; ctx.fillRect(-3, -8, 6, 12); ctx.fillStyle = "cyan"; ctx.fillRect(-2, -6, 1, 1); ctx.fillRect(1, -6, 1, 1); }
+    else if (h.type === 'nuclear') { ctx.fillStyle = "#ccc"; ctx.beginPath(); ctx.moveTo(-5, 5); ctx.bezierCurveTo(-2, 5, -2, -5, -5, -5); ctx.lineTo(5, -5); ctx.bezierCurveTo(2, -5, 2, 5, 5, 5); ctx.fill(); ctx.fillStyle = "#0f0"; ctx.fillRect(-1, -1, 2, 2); }
+    else if (h.type === 'school') { ctx.fillStyle = "#a52a2a"; ctx.fillRect(-5, -3, 10, 6); ctx.fillStyle = "white"; ctx.fillRect(-1, -6, 2, 3); }
+    ctx.restore();
+}
+
+function updateWeather() {
+    worldTick++;
+    activeWeather.tornadoes.forEach((t, idx) => {
+        t.x += (Math.random()-0.5)*3; t.y += (Math.random()-0.5)*3; t.life--;
+        hovels = hovels.filter(h => Math.hypot(h.x-t.x, h.y-t.y) > 25);
+        if (t.life <= 0) activeWeather.tornadoes.splice(idx, 1);
+    });
+}
+
+function drawWeather() { activeWeather.tornadoes.forEach(t => { ctx.fillStyle = "rgba(150,150,150,0.4)"; ctx.beginPath(); ctx.arc(t.x, t.y, 25, 0, Math.PI*2); ctx.fill(); }); }
+function spawnCloud() { activeWeather.tornadoes.push({x: Math.random()*MAP_SIZE, y: Math.random()*MAP_SIZE, life: 600}); }
+function updateInfoBar() {
+    let age = "STONE";
+    if (hovels.length >= 7500) age = "ATOMIC"; else if (hovels.length >= 1500) age = "INDUSTRIAL"; else if (hovels.length >= 10) age = "PIONEER";
+    document.getElementById('infoBar').innerText = `POPULATION: ${dwellers.length} | BUILDINGS: ${hovels.length} | AGE: ${age}`;
+}
+
+function generate() {
+    h1 = new NoiseLayer(); d1 = new NoiseLayer(); m1 = new NoiseLayer();
+    dwellers = []; hovels = [];
+    mctx.fillStyle = "#000"; mctx.fillRect(0,0,MAP_SIZE, MAP_SIZE);
+    for(let x=0; x<MAP_SIZE; x+=TILE_SIZE) { for(let y=0; y<MAP_SIZE; y+=TILE_SIZE) { mctx.fillStyle = BiomeColors[getBiome(x, y)]; mctx.fillRect(x, y, TILE_SIZE, TILE_SIZE); } }
+    let startPop = document.getElementById('popCfg').value;
+    for(let i=0; i<startPop; i++) { let sx, sy; do { sx = Math.random()*MAP_SIZE; sy = Math.random()*MAP_SIZE; } while (isWater(sx, sy)); dwellers.push(new Dweller(sx, sy)); }
+    initialized = true;
+}
+
+function spawnDweller() { dwellers.push(new Dweller(250, 250)); }
+function openConfig() { document.getElementById('worldConfig').style.display = 'block'; }
+function closeConfig() { document.getElementById('worldConfig').style.display = 'none'; }
+function wipeWorld() { hovels = []; dwellers = []; activeWeather.tornadoes = []; }
+
+function draw() {
+    if (initialized) { ctx.drawImage(mapCanvas, 0, 0); hovels.forEach(drawBuilding); dwellers.forEach(d => { d.update(); d.draw(); }); updateWeather(); drawWeather(); updateInfoBar(); }
+    requestAnimationFrame(draw);
+}
+generate(); draw();
+</script>
+</body>
+</html>
