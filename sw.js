@@ -1,10 +1,10 @@
-const CACHE_NAME = 'map-app-v1';
+const CACHE_NAME = 'map-app-v2';
 const ASSETS = [
-  '/Map-App/',
-  '/Map-App/index.html',
-  '/Map-App/manifest.json',
-  '/Map-App/sw.js',
-  '/Map-App/icon-512.png'
+  'https://rathofcam.github.io/Map-App/game/',
+  'https://rathofcam.github.io/Map-App/game/index.html',
+  'https://rathofcam.github.io/Map-App/game/manifest.json',
+  'https://rathofcam.github.io/Map-App/game/sw.js',
+  'https://rathofcam.github.io/Map-App/game/icon-512.png'
 ];
 
 self.addEventListener('install', (e) => {
