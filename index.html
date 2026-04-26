@@ -27,7 +27,7 @@
     <div class="panel">
         <button onclick="openConfig()">🏗️ Architect</button>
         <button onclick="spawnDweller()">👥 Add Dweller</button>
-        <button onclick="spawnCloud()" style="border-color:#aaa; color:#fff;">☁️ Cloud</button>
+        <button onclick="spawnCloud()" style="border-color:#aaa; color:#fff;">☁️ Weather</button>
         <button onclick="wipeWorld()" style="border-color:#ffa500; color:#ffa500;">🧹 WIPE</button>
         <button onclick="generate()" style="border-color:#f00; color:#f00;">♻️ Reset</button>
     </div>
@@ -48,7 +48,7 @@
 <div id="infoBar">POPULATION: 0 | BUILDINGS: 0 | AGE: STONE</div>
 
 <script>
-// SERVICE WORKER REGISTRATION - HARD CODED FOR /game/
+// SERVICE WORKER REGISTRATION
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('https://rathofcam.github.io/Map-App/game/sw.js')
@@ -168,13 +168,52 @@ function updateWeather() {
     worldTick++;
     activeWeather.tornadoes.forEach((t, idx) => {
         t.x += (Math.random()-0.5)*3; t.y += (Math.random()-0.5)*3; t.life--;
-        hovels = hovels.filter(h => Math.hypot(h.x-t.x, h.y-t.y) > 25);
+        // Tornadoes destroy buildings
+        if(t.type === 'tornado') hovels = hovels.filter(h => Math.hypot(h.x-t.x, h.y-t.y) > 25);
         if (t.life <= 0) activeWeather.tornadoes.splice(idx, 1);
     });
 }
 
-function drawWeather() { activeWeather.tornadoes.forEach(t => { ctx.fillStyle = "rgba(150,150,150,0.4)"; ctx.beginPath(); ctx.arc(t.x, t.y, 25, 0, Math.PI*2); ctx.fill(); }); }
-function spawnCloud() { activeWeather.tornadoes.push({x: Math.random()*MAP_SIZE, y: Math.random()*MAP_SIZE, life: 600}); }
+function drawWeather() { 
+    activeWeather.tornadoes.forEach(t => { 
+        ctx.save();
+        ctx.translate(t.x, t.y);
+        
+        if (t.type === 'tornado') {
+            // Spinning Tornado Core
+            for(let i=0; i<6; i++) {
+                let shift = Math.sin(worldTick * 0.2 + i) * 5;
+                let size = 25 - (i * 3);
+                ctx.fillStyle = `rgba(100, 100, 100, ${0.1 + (i*0.1)})`;
+                ctx.beginPath();
+                ctx.ellipse(shift, -i*4, size, size/2, Math.sin(worldTick*0.1), 0, Math.PI*2);
+                ctx.fill();
+            }
+        } else {
+            // Fluffy Cloud
+            ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+            for(let i=0; i<5; i++) {
+                ctx.beginPath();
+                let ox = Math.cos(i * 1.2) * 10;
+                let oy = Math.sin(i * 1.2) * 5;
+                ctx.arc(ox, oy, 12, 0, Math.PI*2);
+                ctx.fill();
+            }
+        }
+        ctx.restore();
+    }); 
+}
+
+function spawnCloud() { 
+    const isStorm = Math.random() > 0.5;
+    activeWeather.tornadoes.push({
+        x: Math.random()*MAP_SIZE, 
+        y: Math.random()*MAP_SIZE, 
+        life: 800, 
+        type: isStorm ? 'tornado' : 'cloud'
+    }); 
+}
+
 function updateInfoBar() {
     let age = "STONE";
     if (hovels.length >= 7500) age = "ATOMIC"; else if (hovels.length >= 1500) age = "INDUSTRIAL"; else if (hovels.length >= 10) age = "PIONEER";
@@ -204,4 +243,5 @@ generate(); draw();
 </script>
 </body>
 </html>
+
 
