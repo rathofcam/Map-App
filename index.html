@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="https://rathofcam.github.io/Map-App/game/manifest.json">
     <title>Map App</title>
     <style>
         :root { --neon: #0f0; --bg: #111; }
@@ -48,9 +48,12 @@
 <div id="infoBar">POPULATION: 0 | BUILDINGS: 0 | AGE: STONE</div>
 
 <script>
+// SERVICE WORKER REGISTRATION - HARD CODED FOR /game/
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(err => console.log('SW failed', err));
+    navigator.serviceWorker.register('https://rathofcam.github.io/Map-App/game/sw.js')
+    .then(reg => console.log('SW Registered in /game/'))
+    .catch(err => console.log('SW failed', err));
   });
 }
 
@@ -201,3 +204,4 @@ generate(); draw();
 </script>
 </body>
 </html>
+
