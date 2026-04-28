@@ -1,300 +1,1721 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="manifest" href="https://rathofcam.github.io/Map-App/game/manifest.json">
-    <title>Map App - Storm Chaser</title>
-    <style>
-        :root { --neon: #0f0; --bg: #111; }
-        body { margin: 0; font-family: 'Segoe UI', sans-serif; overflow: hidden; background: var(--bg); display: flex; justify-content: center; align-items: center; height: 100vh; touch-action: none; }
-        .ui-layer { position: absolute; top: 0; left: 0; z-index: 10; width: 100%; pointer-events: none; }
-        .panel { background: rgba(0,0,0,0.9); color: var(--neon); padding: 12px; pointer-events: auto; border-bottom: 2px solid #444; display: flex; gap: 8px; flex-wrap: wrap; }
-        .config-panel { background: rgba(10, 10, 10, 0.98); border: 1px solid var(--neon); color: var(--neon); padding: 20px; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000; border-radius: 8px; pointer-events: auto; box-shadow: 0 0 30px rgba(0,255,0,0.2); max-height: 80vh; overflow-y: auto; width: 280px; }
-        .config-row { margin: 15px 0; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
-        input[type=range] { width: 100px; accent-color: var(--neon); }
-        button { cursor: pointer; padding: 8px 12px; background: #111; color: var(--neon); border: 1px solid var(--neon); font-size: 11px; border-radius: 4px; font-weight: bold; text-transform: uppercase; }
-        button:hover { background: var(--neon); color: #000; }
-        canvas { border: 2px solid #333; background: #000; cursor: crosshair; max-width: 100vw; max-height: 80vh; image-rendering: pixelated; }
-        #infoBar { position: fixed; bottom: 0; width: 100%; background: rgba(0,0,0,0.9); color: var(--neon); padding: 10px; font-family: monospace; border-top: 1px solid #333; font-size: 11px; text-align: center; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Storm Chaser - Omni Evolution</title>
+
+<style>
+:root { --neon:#0f0; --bg:#050505; }
+
+body{
+    margin:0;
+    font-family:'Courier New',monospace;
+    overflow:hidden;
+    background:
+        radial-gradient(circle at center,#151515 0%,#050505 55%,#000 100%);
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+    touch-action:none;
+}
+
+.ui-layer{
+    position:absolute;
+    top:0;
+    left:0;
+    z-index:10;
+    width:100%;
+    pointer-events:none;
+}
+
+.panel{
+    background:linear-gradient(180deg,rgba(0,0,0,.96),rgba(0,30,0,.78));
+    padding:10px;
+    display:flex;
+    gap:5px;
+    flex-wrap:wrap;
+    pointer-events:auto;
+    border-bottom:2px solid #144414;
+    box-shadow:0 0 18px rgba(0,255,0,.22);
+}
+
+button{
+    cursor:pointer;
+    padding:6px 10px;
+    background:linear-gradient(180deg,#181818,#050505);
+    color:#0f0;
+    border:1px solid #0f0;
+    font-size:10px;
+    border-radius:5px;
+    font-weight:bold;
+    box-shadow:inset 0 0 8px rgba(0,255,0,.12);
+}
+
+button:hover{
+    background:#0f0;
+    color:#000;
+    box-shadow:0 0 12px #0f0;
+}
+
+.config-panel{
+    background:rgba(10,10,10,.98);
+    border:1px solid #0f0;
+    color:#0f0;
+    padding:20px;
+    position:fixed;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    z-index:1000;
+    border-radius:8px;
+    pointer-events:auto;
+    width:300px;
+    display:none;
+    box-shadow:0 0 25px rgba(0,255,0,.35);
+}
+
+.config-row{
+    margin:10px 0;
+    display:flex;
+    justify-content:space-between;
+    font-size:11px;
+}
+
+input[type=range]{
+    width:120px;
+    accent-color:#0f0;
+}
+
+canvas{
+    border:2px solid #333;
+    background:#000;
+    max-width:100vw;
+    max-height:80vh;
+    image-rendering:pixelated;
+    box-shadow:
+        0 0 30px rgba(0,0,0,.9),
+        0 0 12px rgba(0,255,0,.12);
+}
+
+#infoBar{
+    position:fixed;
+    bottom:0;
+    width:100%;
+    background:linear-gradient(180deg,rgba(0,0,0,.85),rgba(0,20,0,.95));
+    color:#0f0;
+    padding:8px;
+    font-size:10px;
+    text-align:center;
+    border-top:1px solid #144414;
+    text-shadow:0 0 6px rgba(0,255,0,.5);
+}
+</style>
 </head>
+
 <body>
 
-<audio id="boopSound" src="99219__mtadder__boop2.wav"></audio>
-<audio id="windSound" src="2690__anton__wind1.wav" loop></audio>
-<audio id="blackHoleSound" src="19hz_sound.wav" loop></audio>
-
 <div class="ui-layer">
-    <div class="panel">
-        <button onclick="openConfig()">🏗️ Architect</button>
-        <button onclick="spawnDweller()">👥 Add Dweller</button>
-        <button onclick="spawnWeather()" style="border-color:#aaa; color:#fff;">☁️ Weather</button>
-        <button onclick="wipeWorld()" style="border-color:#ffa500; color:#ffa500;">🧹 WIPE</button>
-        <button onclick="generate()" style="border-color:#f00; color:#f00;">♻️ Reset</button>
-    </div>
+<div class="panel">
+<button onclick="openConfig()">🏗️ Architect</button>
+<button onclick="spawnDweller()">👥 Spawn</button>
+<button onclick="spawnWeather('thunder')" style="color:#ff0;">⚡ Storm</button>
+<button onclick="spawnTornadicSupercell()" style="color:#f0f;">🌪️ Supercell</button>
+<button onclick="spawnHailstorm()" style="color:#ccf;">🧊 Hail</button>
+<button onclick="spawnBlizzard()" style="color:#cff;">❄️ Blizzard</button>
+<button onclick="triggerWildfire()" style="color:#ff4500;">🔥 Fire</button>
+<button onclick="triggerMudslide()" style="color:#9b6a2f;">🟫 Mudslide</button>
+<button onclick="triggerPoopslide()" style="color:#6b3b18;">💩 Poopslide</button>
+<button onclick="triggerTsunami()" style="color:#0ff;">🌊 Tsunami</button>
+<button onclick="triggerMeteor()" style="color:#ff00ff;">☄️ Meteor</button>
+<button onclick="zoomIn()" style="color:#9ff;">➕ Zoom</button>
+<button onclick="zoomOut()" style="color:#9ff;">➖ Zoom</button>
+<button onclick="resetZoom()" style="color:#9ff;">🎯 Center</button>
+<button onclick="clearLag()" style="color:#aaa;">🧹 Lag</button>
+<button onclick="wipeMap()" style="color:#fff;">🧽 Wipe</button>
+<button onclick="generate()" style="color:#f00;">♻️ Reset</button>
+</div>
 </div>
 
-<div id="worldConfig" class="config-panel" style="display:none;">
-    <h2 style="margin-top:0; font-size: 18px;">EVOLUTION VARS</h2>
-    <div class="config-row"><span>POPULATION</span><input type="range" id="popCfg" min="10" max="1000" value="200"></div>
-    <div class="config-row"><span>WATER</span><input type="range" id="waterCfg" min="0" max="100" value="45"></div>
-    <div class="config-row"><span>MOISTURE</span><input type="range" id="moistCfg" min="0" max="100" value="50"></div>
-    <div class="config-row"><span>COLD</span><input type="range" id="coldCfg" min="0" max="100" value="20"></div>
-    <div class="config-row"><span>DANGER</span><input type="range" id="dangerCfg" min="0" max="100" value="15"></div>
-    <button onclick="generate()" style="width:100%; margin-top:10px;">RE-INITIALIZE</button>
-    <button onclick="closeConfig()" style="width:100%; margin-top:5px; border-color:#666; color:#666;">CLOSE</button>
+<div id="worldConfig" class="config-panel">
+<h3 style="text-align:center;margin:0 0 10px 0;border-bottom:1px solid #0f0;">WORLD VARS</h3>
+<div class="config-row"><span>POPULATION</span><input type="range" id="popCfg" min="10" max="1000" value="300"></div>
+<div class="config-row"><span>WATER LEVEL</span><input type="range" id="waterCfg" min="0" max="100" value="45"></div>
+<div class="config-row"><span>MOISTURE</span><input type="range" id="moistCfg" min="0" max="100" value="50"></div>
+<div class="config-row"><span>COLDNESS</span><input type="range" id="coldCfg" min="0" max="100" value="20"></div>
+<div class="config-row"><span>DANGER INDEX</span><input type="range" id="dangerCfg" min="0" max="100" value="30"></div>
+<div class="config-row"><span>BEAUTY</span><input type="range" id="beautyCfg" min="0" max="100" value="50"></div>
+<button onclick="generate()" style="width:100%;margin-top:10px;">RE-INITIALIZE</button>
+<button onclick="closeConfig()" style="width:100%;margin-top:5px;opacity:.6;">CLOSE</button>
 </div>
 
 <canvas id="mainCanvas"></canvas>
-<div id="infoBar">POPULATION: 0 | BUILDINGS: 0 | AGE: STONE</div>
+<div id="infoBar">POP: 0 | BLD: 0 | STATUS: READY</div>
 
 <script>
-const MAP_SIZE = 500;
-const TILE_SIZE = 5;
-const canvas = document.getElementById("mainCanvas");
-const ctx = canvas.getContext("2d");
-canvas.width = MAP_SIZE; canvas.height = MAP_SIZE;
+const MAP_SIZE=600,TILE_SIZE=5;
+const canvas=document.getElementById("mainCanvas");
+const ctx=canvas.getContext("2d");
+canvas.width=canvas.height=MAP_SIZE;
 
-const mapCanvas = document.createElement('canvas');
-const mctx = mapCanvas.getContext('2d');
-mapCanvas.width = MAP_SIZE; mapCanvas.height = MAP_SIZE;
+const mapCanvas=document.createElement("canvas");
+const mctx=mapCanvas.getContext("2d");
+mapCanvas.width=mapCanvas.height=MAP_SIZE;
 
-let h1, d1, m1;
-let dwellers = [], hovels = [];
-let weatherSystems = [];
-let initialized = false;
-let worldTick = 0;
+let h1,d1,m1,b1;
+let dwellers=[],hovels=[],weatherSystems=[],fires=[],fireWhirls=[],particles=[],rainDrops=[];
+let hailstones=[],snowflakes=[],mudslides=[],poopslides=[];
+let resources={wood:0,ore:0,bricks:0};
+let tsunami={active:false,pos:0};
+let lightningFlash=0,screenShake=0,worldTick=0,initialized=false;
+let worldAge="Stone";
 
-const BiomeColors = {
-    "Deep Ocean": "#000033", "Ocean": "#1a75ff", "Coral Reef": "#00d4ff", "Beach": "#f2d16b",
-    "Plains": "#567d46", "Flower Fields": "#ff69b4", "Forest": "#134e13", "Jungle": "#228b22",
-    "Desert": "#edc9af", "Wasteland": "#4d4d4d", "Volcanic": "#610000", "Snow": "#ffffff",
-    "Ice": "#a5f2f3", "Turd Mountain": "#4b3621"
+let camera={
+    x:0,
+    y:0,
+    zoom:1,
+    dragging:false,
+    lastX:0,
+    lastY:0,
+    pinchDistance:0
 };
 
-class NoiseLayer {
-    constructor() {
-        this.p = new Uint8Array(512);
-        const perm = Array.from({length: 256}, (_, i) => i).sort(() => Math.random() - 0.5);
-        for(let i=0; i<256; i++) this.p[i] = this.p[i+256] = perm[i];
-    }
-    fade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
-    lerp(t, a, b) { return a + t * (b - a); }
-    grad(hash, x, y) {
-        const h = hash & 15;
-        const u = h < 8 ? x : y;
-        const v = h < 4 ? y : h === 12 || h === 14 ? x : 0;
-        return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
-    }
-    get(x, y) {
-        let X = Math.floor(x) & 255, Y = Math.floor(y) & 255;
-        x -= Math.floor(x); y -= Math.floor(y);
-        let u = this.fade(x), v = this.fade(y);
-        let aa = this.p[this.p[X] + Y], ab = this.p[this.p[X] + Y + 1];
-        let ba = this.p[this.p[X + 1] + Y], bb = this.p[this.p[X + 1] + Y + 1];
-        return this.lerp(v, this.lerp(u, this.grad(aa, x, y), this.grad(ba, x-1, y)), 
-                            this.lerp(u, this.grad(ab, x, y-1), this.grad(bb, x-1, y-1)));
-    }
+const BuildingCosts={
+    "house":{wood:0,ore:0,bricks:0},
+    "tower":{wood:0,ore:0,bricks:0},
+    "poop shack":{wood:0,ore:0,bricks:0},
+    "sandhut":{wood:0,ore:0,bricks:0},
+    "igloo":{wood:0,ore:0,bricks:0},
+    "cabin":{wood:0,ore:0,bricks:0},
+    "pinkhouse":{wood:0,ore:0,bricks:0},
+    "lavenderhouse":{wood:0,ore:0,bricks:0},
+    "treehouse":{wood:0,ore:0,bricks:0},
+    "town hall":{wood:5,ore:1,bricks:0},
+    "windmill":{wood:10,ore:5,bricks:0},
+    "apartment":{wood:45,ore:25,bricks:0},
+    "factory":{wood:25,ore:50,bricks:0},
+    "nuclear plant":{wood:0,ore:150,bricks:350},
+    "computer factory":{wood:0,ore:125,bricks:235}
+};
+
+const BiomeColors={
+"Deep Ocean":"#000022",
+"Ocean":"#003366",
+"Coral Reef":"#0088aa",
+"Beach":"#d2b48c",
+"Plains":"#3d5229",
+"Flower Fields":"#ffb7c5",
+"Forest":"#1a3300",
+"Jungle":"#004411",
+"Desert":"#c2b280",
+"Wasteland":"#332211",
+"Volcanic":"#440000",
+"Snow":"#e0f7fa",
+"Ice":"#ffffff",
+"Turd Mountain":"#3e2723",
+"Rainforest":"#006b2e",
+"Lavender Fields":"#967bb6",
+"Cherry Grove":"#ff9ebc",
+"Birch Forest":"#b7d7a8",
+"Crater":"#111111"
+};
+
+class NoiseLayer{
+constructor(){
+this.p=new Uint8Array(512);
+const perm=Array.from({length:256},(_,i)=>i).sort(()=>Math.random()-.5);
+for(let i=0;i<256;i++)this.p[i]=this.p[i+256]=perm[i];
+}
+fade(t){return t*t*t*(t*(t*6-15)+10);}
+lerp(t,a,b){return a+t*(b-a);}
+grad(h,x,y){
+const u=(h&15)<8?x:y;
+const v=(h&15)<4?y:(h&15)===12||(h&15)===14?x:0;
+return ((h&1)===0?u:-u)+((h&2)===0?v:-v);
+}
+get(x,y){
+let X=Math.floor(x)&255,Y=Math.floor(y)&255;
+x-=Math.floor(x);y-=Math.floor(y);
+let u=this.fade(x),v=this.fade(y);
+let aa=this.p[this.p[X]+Y],ab=this.p[this.p[X]+Y+1],ba=this.p[this.p[X+1]+Y],bb=this.p[this.p[X+1]+Y+1];
+return this.lerp(v,this.lerp(u,this.grad(aa,x,y),this.grad(ba,x-1,y)),this.lerp(u,this.grad(ab,x,y-1),this.grad(bb,x-1,y-1)));
+}
 }
 
-function getBiome(x, y) {
-    if (!h1) return "Void";
-    const danger = document.getElementById('dangerCfg').value / 100;
-    const waterLevel = (document.getElementById('waterCfg').value - 50) / 100;
-    const moistureOffset = (document.getElementById('moistCfg').value - 50) / 100;
-    const coldLevel = (document.getElementById('coldCfg').value - 50) / 100;
-    let e = h1.get(x/180, y/180) - waterLevel; 
-    let m = m1.get(x/150, y/150) + moistureOffset; 
-    let d = d1.get(x/100, y/100) + (danger * 0.5); 
-    if (e > 0.3 && d > 0.4 && m < -0.1) return "Turd Mountain";
-    if (e < -0.3) return "Deep Ocean";
-    if (e < -0.15) return "Ocean";
-    if (e < -0.05) return "Coral Reef";
-    if (e < 0.02) return "Beach";
-    if (e + coldLevel > 0.4) return "Snow";
-    if (e + coldLevel > 0.3 && d < 0.1) return "Ice";
-    if (d > 0.6) return "Volcanic";
-    if (d > 0.4 && m < -0.2) return "Wasteland";
-    if (d > 0.2 && m < -0.3) return "Desert";
-    if (m > 0.4) return "Jungle";
-    if (m > 0.2) return "Forest";
-    if (m > 0.05) return "Flower Fields";
-    return "Plains";
+function getWorldAge(){
+if(hovels.length>=1000)return"Nuclear";
+if(hovels.length>=250)return"Industrial";
+if(hovels.length>=10)return"Pioneer";
+return"Stone";
 }
 
-function isWater(x, y) { return ["Deep Ocean", "Ocean", "Coral Reef"].includes(getBiome(x, y)); }
+function getBiome(x,y){
+if(!h1)return"Void";
 
-class Dweller {
-    constructor(x, y) { this.x = x; this.y = y; this.color = `hsl(${Math.random()*360}, 70%, 60%)`; this.buildingsCreated = 0; }
-    update() {
-        let nx = this.x + (Math.random()-0.5)*4, ny = this.y + (Math.random()-0.5)*4;
-        if (isWater(nx, ny)) { nx = this.x; ny = this.y; }
-        this.x = Math.max(5, Math.min(MAP_SIZE-5, nx)); this.y = Math.max(5, Math.min(MAP_SIZE-5, ny));
-        if(this.buildingsCreated < 2 && Math.random() < 0.005 && !isWater(this.x, this.y)) { this.build(); this.buildingsCreated++; }
-    }
-    build() {
-        let type = 'house'; let biome = getBiome(this.x, this.y); let count = hovels.length;
-        if (biome === "Turd Mountain") type = 'stinkshack';
-        else if (count >= 7500) { let r = Math.random(); if (r < 0.05) type = 'nuclear'; else if (r < 0.15) type = 'school'; else if (r < 0.4) type = 'factory'; else type = 'apartment'; } 
-        else if (count >= 1500) { let r = Math.random(); if (r < 0.2) type = 'factory'; else if (r < 0.5) type = 'apartment'; else type = 'house'; }
-        else if (count >= 10) { let r = Math.random(); if (r < 0.1) type = 'townhall'; else if (r < 0.2 && (biome === "Plains" || biome === "Flower Fields")) type = 'windmill'; else type = 'house'; }
-        hovels.push({x: this.x, y: this.y, type: type, color: this.color});
-    }
-    draw() { ctx.fillStyle = this.color; ctx.fillRect(this.x-1, this.y-1.5, 2, 3); }
+const wat=(document.getElementById("waterCfg").value-50)/100;
+const mst=(document.getElementById("moistCfg").value-50)/100;
+const cld=(document.getElementById("coldCfg").value-50)/100;
+const dng=(document.getElementById("dangerCfg").value-50)/100;
+const bty=(document.getElementById("beautyCfg").value-50)/100;
+
+let e=h1.get(x/200,y/200)-wat;
+let m=m1.get(x/160,y/160)+mst;
+let d=d1.get(x/120,y/120)+dng;
+let b=b1.get(x/100,y/100)+bty;
+
+if(e>.35&&d>.3&&m<-.1&&b<.1)return"Turd Mountain";
+if(e<-.35)return"Deep Ocean";
+if(e<-.15)return"Ocean";
+if(e<-.05)return"Coral Reef";
+if(e<.02)return"Beach";
+if(e+cld>.45)return"Ice";
+if(e+cld>.25)return"Snow";
+if(d>.6)return"Volcanic";
+if(b>.58&&m>.05)return"Cherry Grove";
+if(b>.48&&m<.2)return"Lavender Fields";
+if(b>.38)return"Flower Fields";
+if(m>.6)return"Rainforest";
+if(m>.42)return"Jungle";
+if(m>.22&&b>.08)return"Birch Forest";
+if(m>.1)return"Forest";
+if(m<-.3)return"Desert";
+if(m<-.1)return"Wasteland";
+return"Plains";
 }
 
-function drawBuilding(h) {
-    ctx.save(); ctx.translate(h.x, h.y);
-    if (h.type === 'house') { ctx.fillStyle = h.color; ctx.fillRect(-2, -2, 4, 4); ctx.fillStyle = "#333"; ctx.beginPath(); ctx.moveTo(-3, -2); ctx.lineTo(0, -5); ctx.lineTo(3, -2); ctx.fill(); } 
-    else if (h.type === 'stinkshack') { ctx.fillStyle = "#634"; ctx.fillRect(-2, -1, 4, 3); ctx.fillStyle = "#fb0"; ctx.fillRect(-0.5, -0.5, 1, 1); }
-    else if (h.type === 'townhall') { ctx.fillStyle = "white"; ctx.fillRect(-4, -4, 8, 8); ctx.fillStyle = "blue"; ctx.fillRect(-4, -4, 8, 2); }
-    else if (h.type === 'windmill') { ctx.fillStyle = "#aaa"; ctx.fillRect(-0.5, -4, 1, 8); ctx.strokeStyle = "white"; ctx.lineWidth = 0.5; let rot = worldTick * 0.1; ctx.beginPath(); for(let i=0; i<4; i++) { ctx.moveTo(0, -4); ctx.lineTo(Math.cos(rot + i*Math.PI/2)*5, -4 + Math.sin(rot + i*Math.PI/2)*5); } ctx.stroke(); }
-    else if (h.type === 'factory') { ctx.fillStyle = "#555"; ctx.fillRect(-4, -2, 8, 5); ctx.fillStyle = "#222"; ctx.fillRect(1, -6, 2, 5); }
-    else if (h.type === 'apartment') { ctx.fillStyle = "#888"; ctx.fillRect(-3, -8, 6, 12); ctx.fillStyle = "cyan"; ctx.fillRect(-2, -6, 1, 1); ctx.fillRect(1, -6, 1, 1); }
-    else if (h.type === 'nuclear') { ctx.fillStyle = "#ccc"; ctx.beginPath(); ctx.moveTo(-5, 5); ctx.bezierCurveTo(-2, 5, -2, -5, -5, -5); ctx.lineTo(5, -5); ctx.bezierCurveTo(2, -5, 2, 5, 5, 5); ctx.fill(); ctx.fillStyle = "#0f0"; ctx.fillRect(-1, -1, 2, 2); }
-    else if (h.type === 'school') { ctx.fillStyle = "#a52a2a"; ctx.fillRect(-5, -3, 10, 6); ctx.fillStyle = "white"; ctx.fillRect(-1, -6, 2, 3); }
-    ctx.restore();
+const isWater=(x,y)=>["Deep Ocean","Ocean","Coral Reef"].includes(getBiome(x,y));
+
+function canAfford(kind){
+const c=BuildingCosts[kind]||{wood:0,ore:0,bricks:0};
+return resources.wood>=c.wood&&resources.ore>=c.ore&&resources.bricks>=c.bricks;
 }
 
-function updateWeather() {
-    worldTick++;
-    const wind = document.getElementById("windSound");
-    let hasTornado = weatherSystems.some(s => s.type === 'tornado');
-    
-    if (hasTornado) {
-        if (wind.paused) wind.play().catch(()=>{});
-    } else {
-        wind.pause();
-    }
-
-    weatherSystems.forEach((s, idx) => {
-        s.x += (Math.random()-0.5)*2; 
-        s.y += (Math.random()-0.5)*2; 
-        s.life--;
-
-        if (s.type === 'tornado') {
-            hovels = hovels.filter(h => Math.hypot(h.x-s.x, h.y-s.y) > 20);
-        }
-
-        // Tornadic Supercell Logic
-        if (s.type === 'supercell' && s.tornadic && worldTick % 100 === 0) {
-            if (Math.random() < 0.2) {
-                weatherSystems.push({x: s.x, y: s.y, type: 'tornado', life: 400});
-            }
-        }
-
-        if (s.life <= 0) weatherSystems.splice(idx, 1);
-    });
+function payForBuilding(kind){
+const c=BuildingCosts[kind]||{wood:0,ore:0,bricks:0};
+resources.wood-=c.wood;
+resources.ore-=c.ore;
+resources.bricks-=c.bricks;
 }
 
-function updateBlackHoleSound() {
-    const hum = document.getElementById("blackHoleSound");
-    if (initialized && dwellers.length === 0 && hovels.length === 0) {
-        if (hum.paused) hum.play().catch(()=>{});
-    } else {
-        hum.pause();
-    }
+function roundRect(ctx,x,y,w,h,r){
+ctx.beginPath();
+ctx.moveTo(x+r,y);
+ctx.lineTo(x+w-r,y);
+ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+ctx.lineTo(x+w,y+h-r);
+ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+ctx.lineTo(x+r,y+h);
+ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+ctx.lineTo(x,y+r);
+ctx.quadraticCurveTo(x,y,x+r,y);
+ctx.closePath();
+} class Dweller{
+constructor(x,y){
+this.x=x;
+this.y=y;
+const r=Math.random();
+this.type=r<.1?"builder":r<.2?"meteorologist":"civilian";
+this.color=this.type==="builder"?"#0ff":this.type==="meteorologist"?"#ff0":`hsl(${Math.random()*360},70%,60%)`;
+this.lastBuild=worldTick+Math.random()*200;
+this.bob=Math.random()*Math.PI*2;
 }
 
-function drawWeather() {
-    weatherSystems.forEach(s => {
-        ctx.save();
-        ctx.translate(s.x, s.y);
-        
-        if (s.type === 'fog') {
-            ctx.fillStyle = "rgba(200, 200, 200, 0.2)";
-            ctx.beginPath(); ctx.arc(0, 0, 40, 0, Math.PI*2); ctx.fill();
-        } 
-        else if (s.type === 'cloud') {
-            ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
-            ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI*2); ctx.arc(10, -5, 12, 0, Math.PI*2); ctx.arc(-10, -5, 10, 0, Math.PI*2); ctx.fill();
-        } 
-        else if (s.type === 'rain' || s.type === 'thunder') {
-            ctx.fillStyle = s.type === 'rain' ? "#888" : "#444";
-            ctx.beginPath(); ctx.arc(0, 0, 20, 0, Math.PI*2); ctx.arc(15, -5, 15, 0, Math.PI*2); ctx.arc(-15, -5, 15, 0, Math.PI*2); ctx.fill();
-            // Rain streaks
-            ctx.strokeStyle = "rgba(150, 150, 150, 0.4)";
-            for(let i=0; i<5; i++) {
-                let rx = -20 + Math.random()*40;
-                ctx.beginPath(); ctx.moveTo(rx, 10); ctx.lineTo(rx, 30); ctx.stroke();
-            }
-        } 
-        else if (s.type === 'supercell') {
-            ctx.fillStyle = "#222";
-            ctx.beginPath(); ctx.arc(0, 0, 35, 0, Math.PI*2); ctx.arc(20, -10, 30, 0, Math.PI*2); ctx.arc(-20, -10, 30, 0, Math.PI*2); ctx.fill();
-            ctx.fillStyle = "#000";
-            ctx.beginPath(); ctx.arc(0, -20, 25, 0, Math.PI*2); ctx.fill();
-        }
-        else if (s.type === 'tornado') {
-            // Pretty grayscale layered tornado (non-spinning)
-            ctx.fillStyle = "rgba(80, 80, 80, 0.5)";
-            ctx.beginPath(); ctx.moveTo(-25, -40); ctx.lineTo(25, -40); ctx.lineTo(5, 5); ctx.lineTo(-5, 5); ctx.fill();
-            ctx.fillStyle = "rgba(40, 40, 40, 0.7)";
-            ctx.beginPath(); ctx.moveTo(-15, -30); ctx.lineTo(15, -30); ctx.lineTo(2, 5); ctx.lineTo(-2, 5); ctx.fill();
-            ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
-            ctx.beginPath(); ctx.ellipse(0, 5, 15, 5, 0, 0, Math.PI*2); ctx.fill();
-        }
-        ctx.restore();
-    });
+update(){
+let danger=null,closest=9999;
+
+weatherSystems.forEach(s=>{
+if(s.type==="tornado"||s.type==="supercell"||s.type==="hailstorm"||s.type==="blizzard"){
+let dist=Math.hypot(this.x-s.x,this.y-s.y);
+if(dist<closest){closest=dist;danger=s;}
+}
+});
+
+fireWhirls.forEach(w=>{
+let dist=Math.hypot(this.x-w.x,this.y-w.y);
+if(dist<closest){closest=dist;danger=w;}
+});
+
+mudslides.forEach(m=>{
+let dist=Math.hypot(this.x-m.x,this.y-m.y);
+if(dist<closest){closest=dist;danger=m;}
+});
+
+poopslides.forEach(p=>{
+let dist=Math.hypot(this.x-p.x,this.y-p.y);
+if(dist<closest){closest=dist;danger=p;}
+});
+
+if(danger&&closest<110){
+let force=this.type==="meteorologist"?.18:.06;
+this.x+=(this.x-danger.x)*force;
+this.y+=(this.y-danger.y)*force;
+}else{
+let speed=this.type==="builder"?1.2:2.4;
+this.x+=(Math.random()-.5)*speed;
+this.y+=(Math.random()-.5)*speed;
 }
 
-function spawnWeather() {
-    const types = ['fog', 'cloud', 'rain', 'thunder', 'supercell'];
-    let type = types[Math.floor(Math.random()*types.length)];
-    let tornadic = (type === 'supercell' && Math.random() < 0.125); // 1 in 8
-    weatherSystems.push({
-        x: Math.random()*MAP_SIZE, 
-        y: Math.random()*MAP_SIZE, 
-        type: type, 
-        tornadic: tornadic,
-        life: 800
-    });
+let biome=getBiome(this.x,this.y);
+
+if(["Forest","Birch Forest","Jungle","Rainforest","Cherry Grove"].includes(biome)&&Math.random()<.01){
+resources.wood++;
 }
 
-function updateInfoBar() {
-    let age = "STONE";
-    if (hovels.length >= 7500) age = "ATOMIC"; else if (hovels.length >= 1500) age = "INDUSTRIAL"; else if (hovels.length >= 10) age = "PIONEER";
-    document.getElementById('infoBar').innerText = `POPULATION: ${dwellers.length} | BUILDINGS: ${hovels.length} | AGE: ${age}`;
+if(["Volcanic","Turd Mountain","Wasteland","Desert","Snow","Ice"].includes(biome)&&Math.random()<.006){
+resources.ore++;
 }
 
-function generate() {
-    h1 = new NoiseLayer(); d1 = new NoiseLayer(); m1 = new NoiseLayer();
-    dwellers = []; hovels = []; weatherSystems = [];
-    mctx.fillStyle = "#000"; mctx.fillRect(0,0,MAP_SIZE, MAP_SIZE);
-    for(let x=0; x<MAP_SIZE; x+=TILE_SIZE) { for(let y=0; y<MAP_SIZE; y+=TILE_SIZE) { mctx.fillStyle = BiomeColors[getBiome(x, y)]; mctx.fillRect(x, y, TILE_SIZE, TILE_SIZE); } }
-    let startPop = document.getElementById('popCfg').value;
-    for(let i=0; i<startPop; i++) { let sx, sy; do { sx = Math.random()*MAP_SIZE; sy = Math.random()*MAP_SIZE; } while (isWater(sx, sy)); dwellers.push(new Dweller(sx, sy)); }
-    initialized = true;
+if(hovels.some(h=>h.kind==="factory")&&Math.random()<.004){
+resources.bricks++;
 }
 
-function spawnDweller() { 
-    dwellers.push(new Dweller(250, 250)); 
-    const boop = document.getElementById("boopSound");
-    boop.currentTime = 0;
-    boop.play().catch(()=>{});
+let buildRate=this.type==="builder"?300:900;
+
+if(worldTick-this.lastBuild>buildRate&&!isWater(this.x,this.y)){
+createBuilding(this.x,this.y,this.color,this.type);
+this.lastBuild=worldTick;
 }
 
-function openConfig() { document.getElementById('worldConfig').style.display = 'block'; }
-function closeConfig() { document.getElementById('worldConfig').style.display = 'none'; }
-function wipeWorld() { hovels = []; dwellers = []; weatherSystems = []; }
-
-function draw() {
-    if (initialized) { 
-        ctx.drawImage(mapCanvas, 0, 0); 
-        hovels.forEach(drawBuilding); 
-        dwellers.forEach(d => { d.update(); d.draw(); }); 
-        updateWeather(); 
-        updateBlackHoleSound();
-        drawWeather(); 
-        updateInfoBar(); 
-    }
-    requestAnimationFrame(draw);
+this.x=Math.max(0,Math.min(MAP_SIZE,this.x));
+this.y=Math.max(0,Math.min(MAP_SIZE,this.y));
 }
-generate(); draw();
+
+draw(){
+this.bob+=.08;
+let bobY=Math.sin(this.bob)*.6;
+
+ctx.save();
+ctx.translate(this.x,this.y+bobY);
+
+ctx.fillStyle="rgba(0,0,0,.28)";
+ctx.beginPath();
+ctx.ellipse(0,3,3,1.4,0,0,Math.PI*2);
+ctx.fill();
+
+ctx.fillStyle=this.color;
+ctx.beginPath();
+ctx.arc(0,-2,2.2,0,Math.PI*2);
+ctx.fill();
+
+ctx.fillStyle="rgba(255,255,255,.65)";
+ctx.fillRect(-.7,-2.8,1,1);
+
+ctx.fillStyle=this.color;
+roundRect(ctx,-1.6,0,3.2,4,1);
+ctx.fill();
+
+if(this.type==="builder"){
+ctx.strokeStyle="rgba(0,255,255,.85)";
+ctx.lineWidth=.8;
+ctx.strokeRect(-4,-5,8,10);
+ctx.fillStyle="#0ff";
+ctx.fillRect(2,-1,2,1);
+}
+
+if(this.type==="meteorologist"){
+ctx.strokeStyle="rgba(255,255,0,.85)";
+ctx.lineWidth=.8;
+ctx.beginPath();
+ctx.arc(0,0,5,0,Math.PI*2);
+ctx.stroke();
+
+ctx.beginPath();
+ctx.moveTo(-4,-6);
+ctx.lineTo(0,-9);
+ctx.lineTo(4,-6);
+ctx.stroke();
+}
+
+ctx.restore();
+}
+}
+
+function createBuilding(x,y,color,ownerType){
+if(isWater(x,y))return;
+
+let biome=getBiome(x,y);
+let kind="house";
+
+if(worldAge==="Pioneer"&&Math.random()<.25)kind=Math.random()<.5?"town hall":"windmill";
+if(worldAge==="Industrial"&&Math.random()<.3)kind=Math.random()<.5?"apartment":"factory";
+if(worldAge==="Nuclear"&&Math.random()<.25)kind=Math.random()<.5?"nuclear plant":"computer factory";
+
+if(biome==="Turd Mountain")kind="poop shack";
+else if(ownerType==="builder"&&kind==="house")kind=Math.random()<.5?"tower":"house";
+else if(biome==="Desert"&&kind==="house")kind="sandhut";
+else if((biome==="Snow"||biome==="Ice")&&kind==="house")kind="igloo";
+else if((biome==="Forest"||biome==="Birch Forest")&&kind==="house")kind="cabin";
+else if(biome==="Cherry Grove"&&kind==="house")kind="pinkhouse";
+else if(biome==="Lavender Fields"&&kind==="house")kind="lavenderhouse";
+else if((biome==="Rainforest"||biome==="Jungle")&&kind==="house")kind="treehouse";
+
+if(!canAfford(kind))kind="house";
+if(!canAfford(kind))return;
+
+payForBuilding(kind);
+hovels.push({x,y,color,kind,size:4+Math.random()*3,glow:ownerType==="builder",spark:Math.random()*100});
+}
+
+function drawBuilding(h){
+const s=h.size;
+h.spark+=.08;
+
+ctx.save();
+ctx.translate(h.x,h.y);
+
+ctx.fillStyle="rgba(0,0,0,.3)";
+ctx.beginPath();
+ctx.ellipse(0,3,s*1.6,s*.55,0,0,Math.PI*2);
+ctx.fill();
+
+if(h.glow){
+ctx.shadowColor="#0ff";
+ctx.shadowBlur=10;
+}
+
+if(h.kind==="tower"){
+ctx.fillStyle="#151515";
+roundRect(ctx,-s/2,-s*2,s,s*2,1.5);
+ctx.fill();
+
+ctx.fillStyle="#0ff";
+ctx.globalAlpha=.85;
+ctx.fillRect(-s/2+1,-s*2+2,s-2,2);
+ctx.globalAlpha=1;
+
+ctx.fillStyle="#1f1f1f";
+ctx.fillRect(-s/2-1,-s*2-3,s+2,3);
+
+ctx.fillStyle="#0ff";
+ctx.beginPath();
+ctx.arc(0,-s*2-5,2+Math.sin(h.spark)*.4,0,Math.PI*2);
+ctx.fill();
+
+}else if(h.kind==="town hall"){
+ctx.fillStyle="#686868";
+roundRect(ctx,-s*1.6,-s,s*3.2,s*2,2);
+ctx.fill();
+
+ctx.fillStyle="#303030";
+ctx.beginPath();
+ctx.moveTo(-s*1.85,-s);
+ctx.lineTo(0,-s*2.55);
+ctx.lineTo(s*1.85,-s);
+ctx.fill();
+
+ctx.fillStyle="#999";
+ctx.fillRect(-1,-s*2.25,2,s*1.1);
+
+ctx.fillStyle="#ffd36b";
+ctx.fillRect(-2,0,4,4);
+ctx.fillRect(-s,-s*.4,2,2);
+ctx.fillRect(s-2,-s*.4,2,2);
+
+}else if(h.kind==="windmill"){
+ctx.fillStyle="#e8e8d8";
+roundRect(ctx,-2,-s,4,s*2,1);
+ctx.fill();
+
+ctx.fillStyle="#bca76a";
+ctx.beginPath();
+ctx.moveTo(-s,-s);
+ctx.lineTo(0,-s*1.7);
+ctx.lineTo(s,-s);
+ctx.fill();
+
+ctx.strokeStyle="#f5f5f5";
+ctx.lineWidth=2;
+for(let i=0;i<4;i++){
+ctx.beginPath();
+ctx.moveTo(0,-s);
+ctx.lineTo(Math.cos(i*Math.PI/2+worldTick*.04)*s*2,-s+Math.sin(i*Math.PI/2+worldTick*.04)*s*2);
+ctx.stroke();
+}
+
+ctx.fillStyle="#ddd";
+ctx.beginPath();
+ctx.arc(0,-s,2,0,Math.PI*2);
+ctx.fill();
+
+}else if(h.kind==="apartment"){
+ctx.fillStyle="#464646";
+roundRect(ctx,-s,-s*2,s*2,s*4,1.5);
+ctx.fill();
+
+ctx.fillStyle="#303030";
+ctx.fillRect(-s-1,-s*2-2,s*2+2,2);
+
+ctx.fillStyle="#ffd36b";
+for(let yy=-s*1.5;yy<s*1.5;yy+=4){
+for(let xx=-s*.5;xx<s;xx+=4){
+ctx.globalAlpha=.55+Math.random()*.15;
+ctx.fillRect(xx,yy,2,2);
+}
+}
+ctx.globalAlpha=1;
+
+}else if(h.kind==="factory"){
+ctx.fillStyle="#3d3d3d";
+roundRect(ctx,-s*1.6,-s,s*3.2,s*2,1.5);
+ctx.fill();
+
+ctx.fillStyle="#242424";
+ctx.fillRect(s*.5,-s*2,4,s*2);
+
+ctx.fillStyle="rgba(120,120,120,.38)";
+ctx.beginPath();
+ctx.arc(s*.5+2,-s*2-4,4+Math.sin(h.spark)*1.5,0,Math.PI*2);
+ctx.fill(); }else if(h.kind==="nuclear plant"){
+ctx.fillStyle="#6b6b6b";
+ctx.beginPath();
+ctx.arc(-s,0,s*1.15,0,Math.PI*2);
+ctx.fill();
+ctx.beginPath();
+ctx.arc(s,0,s*1.15,0,Math.PI*2);
+ctx.fill();
+
+ctx.fillStyle="#444";
+ctx.fillRect(-s*1.6,-s*.4,s*3.2,s*.8);
+
+ctx.fillStyle="rgba(0,255,0,.55)";
+ctx.beginPath();
+ctx.arc(0,-s*1.9,3+Math.sin(h.spark)*.8,0,Math.PI*2);
+ctx.fill();
+
+ctx.strokeStyle="rgba(0,255,0,.85)";
+ctx.beginPath();
+ctx.arc(0,-s*1.9,6+Math.sin(h.spark)*1.2,0,Math.PI*2);
+ctx.stroke();
+
+}else if(h.kind==="computer factory"){
+ctx.fillStyle="#101820";
+roundRect(ctx,-s*1.6,-s,s*3.2,s*2,1.5);
+ctx.fill();
+
+ctx.strokeStyle="#0ff";
+ctx.strokeRect(-s*1.6,-s,s*3.2,s*2);
+
+ctx.fillStyle="rgba(0,255,255,.35)";
+for(let i=0;i<3;i++){
+ctx.fillRect(-s+i*s,-2,3,3);
+}
+
+ctx.fillStyle="#0ff";
+ctx.beginPath();
+ctx.arc(0,0,2+Math.sin(h.spark)*.5,0,Math.PI*2);
+ctx.fill();
+
+}else if(h.kind==="igloo"){
+ctx.fillStyle="#eaffff";
+ctx.beginPath();
+ctx.arc(0,0,s*1.15,Math.PI,Math.PI*2);
+ctx.fill();
+
+ctx.strokeStyle="rgba(120,180,200,.45)";
+ctx.beginPath();
+ctx.arc(0,0,s*.75,Math.PI,Math.PI*2);
+ctx.stroke();
+
+ctx.fillStyle="#111";
+roundRect(ctx,-2,-2,4,3,1);
+ctx.fill();
+
+}else if(h.kind==="sandhut"){
+ctx.fillStyle="#9c7a3c";
+roundRect(ctx,-s,-s,s*2,s*2,1.5);
+ctx.fill();
+
+ctx.fillStyle="#d6bd72";
+ctx.beginPath();
+ctx.moveTo(-s-1,-s);
+ctx.lineTo(0,-s*2);
+ctx.lineTo(s+1,-s);
+ctx.fill();
+
+ctx.fillStyle="rgba(255,255,255,.2)";
+ctx.fillRect(-s*.5,-s*.3,2,2);
+
+}else if(h.kind==="cabin"){
+ctx.fillStyle="#5a2d0c";
+roundRect(ctx,-s,-s,s*2,s*2,1);
+ctx.fill();
+
+ctx.strokeStyle="rgba(30,10,0,.55)";
+ctx.beginPath();
+ctx.moveTo(-s,-s*.3);
+ctx.lineTo(s,-s*.3);
+ctx.moveTo(-s,s*.3);
+ctx.lineTo(s,s*.3);
+ctx.stroke();
+
+ctx.fillStyle="#2b1205";
+ctx.beginPath();
+ctx.moveTo(-s-1,-s);
+ctx.lineTo(0,-s*2);
+ctx.lineTo(s+1,-s);
+ctx.fill();
+
+ctx.fillStyle="#ffd36b";
+ctx.fillRect(-1,-1,2,2);
+
+}else if(h.kind==="treehouse"){
+ctx.fillStyle="#4b2505";
+roundRect(ctx,-2,0,4,s*2,1);
+ctx.fill();
+
+ctx.fillStyle="#0b4d1b";
+ctx.beginPath();
+ctx.arc(0,-s,s*2,0,Math.PI*2);
+ctx.fill();
+
+ctx.fillStyle="#1a7d34";
+ctx.beginPath();
+ctx.arc(-s*.7,-s*1.2,s*.9,0,Math.PI*2);
+ctx.arc(s*.7,-s*1.15,s*.85,0,Math.PI*2);
+ctx.fill();
+
+ctx.fillStyle="#8b4513";
+roundRect(ctx,-s/2,-s,s,s,1);
+ctx.fill();
+
+ctx.fillStyle="#ffd36b";
+ctx.fillRect(-1,-s*.7,2,2);
+
+}else if(h.kind==="pinkhouse"){
+ctx.fillStyle="#ff9ebc";
+roundRect(ctx,-s,-s,s*2,s*2,1.5);
+ctx.fill();
+
+ctx.fillStyle="#8b3a62";
+ctx.beginPath();
+ctx.moveTo(-s-1,-s);
+ctx.lineTo(0,-s*2);
+ctx.lineTo(s+1,-s);
+ctx.fill();
+
+ctx.fillStyle="#ffe6ef";
+ctx.fillRect(-1,0,2,2);
+
+}else if(h.kind==="lavenderhouse"){
+ctx.fillStyle="#967bb6";
+roundRect(ctx,-s,-s,s*2,s*2,1.5);
+ctx.fill();
+
+ctx.fillStyle="#4b3869";
+ctx.beginPath();
+ctx.moveTo(-s-1,-s);
+ctx.lineTo(0,-s*2);
+ctx.lineTo(s+1,-s);
+ctx.fill();
+
+ctx.fillStyle="#e6ccff";
+ctx.fillRect(-1,0,2,2);
+
+}else if(h.kind==="poop shack"){
+ctx.fillStyle="#5b3516";
+roundRect(ctx,-s,-s,s*2,s*2,2);
+ctx.fill();
+
+ctx.fillStyle="#3e2723";
+ctx.beginPath();
+ctx.arc(0,-s,s*.9,0,Math.PI*2);
+ctx.fill();
+
+ctx.fillStyle="rgba(255,255,255,.15)";
+ctx.beginPath();
+ctx.arc(-s*.25,-s*1.25,1.2,0,Math.PI*2);
+ctx.fill();
+
+}else{
+ctx.fillStyle=h.color;
+roundRect(ctx,-s,-s,s*2,s*2,1.5);
+ctx.fill();
+
+ctx.fillStyle="#111";
+ctx.beginPath();
+ctx.moveTo(-s-1,-s);
+ctx.lineTo(0,-s*2);
+ctx.lineTo(s+1,-s);
+ctx.fill();
+
+ctx.fillStyle="#ffd36b";
+ctx.fillRect(-1,0,2,2);
+}
+
+ctx.restore();
+}
+
+function triggerMeteor(){
+let mx=Math.random()*MAP_SIZE,my=Math.random()*MAP_SIZE;
+lightningFlash=18;
+screenShake=18;
+
+mctx.fillStyle=BiomeColors["Crater"];
+mctx.beginPath();
+mctx.arc(mx,my,42,0,Math.PI*2);
+mctx.fill();
+
+mctx.strokeStyle="#ff6600";
+mctx.lineWidth=2;
+mctx.beginPath();
+mctx.arc(mx,my,46,0,Math.PI*2);
+mctx.stroke();
+
+dwellers=dwellers.filter(d=>Math.hypot(d.x-mx,d.y-my)>45);
+hovels=hovels.filter(h=>Math.hypot(h.x-mx,h.y-my)>45);
+
+for(let i=0;i<70;i++){
+particles.push({
+x:mx,
+y:my,
+vx:(Math.random()-.5)*8,
+vy:(Math.random()-.5)*8,
+life:40+Math.random()*30,
+color:Math.random()<.5?"#ff4500":"#ffaa00",
+size:1+Math.random()*3
+});
+}
+}
+
+function triggerTsunami(){
+tsunami.active=true;
+tsunami.pos=-100;
+screenShake=8;
+}
+
+function triggerWildfire(){
+for(let i=0;i<6;i++){
+let x=Math.random()*MAP_SIZE;
+let y=Math.random()*MAP_SIZE;
+if(!isWater(x,y)){
+fires.push({
+x,
+y,
+size:10+Math.random()*8,
+life:450
+});
+}
+}
+}
+
+function triggerMudslide(){
+let x=Math.random()*MAP_SIZE;
+let y=Math.random()*MAP_SIZE;
+
+for(let tries=0;tries<50;tries++){
+x=Math.random()*MAP_SIZE;
+y=Math.random()*MAP_SIZE;
+let biome=getBiome(x,y);
+if(["Forest","Birch Forest","Jungle","Rainforest","Plains","Wasteland"].includes(biome))break;
+}
+
+mudslides.push({
+x,
+y,
+vx:(Math.random()-.5)*1.2,
+vy:1.8+Math.random(),
+life:260,
+size:16
+});
+}
+
+function triggerPoopslide(){
+let x=Math.random()*MAP_SIZE;
+let y=Math.random()*MAP_SIZE;
+
+for(let tries=0;tries<80;tries++){
+x=Math.random()*MAP_SIZE;
+y=Math.random()*MAP_SIZE;
+if(getBiome(x,y)==="Turd Mountain")break;
+}
+
+poopslides.push({
+x,
+y,
+vx:(Math.random()-.5)*1.4,
+vy:2+Math.random(),
+life:280,
+size:18
+});
+}
+
+function spawnHailstorm(){
+weatherSystems.push({
+x:Math.random()*MAP_SIZE,
+y:80+Math.random()*220,
+type:"hailstorm",
+life:1100,
+vx:(Math.random()-.5)*1.2,
+vy:(Math.random()-.5)*.4
+});
+}
+
+function spawnBlizzard(){
+weatherSystems.push({
+x:Math.random()*MAP_SIZE,
+y:80+Math.random()*220,
+type:"blizzard",
+life:1300,
+vx:(Math.random()-.5)*.8,
+vy:(Math.random()-.5)*.3
+});
+}
+
+function spawnFireWhirl(x,y){
+fireWhirls.push({
+x,
+y,
+life:700,
+vx:(Math.random()-.5)*1.6,
+vy:(Math.random()-.5)*1.6,
+spin:0
+});
+}
+
+function clearLag(){
+particles=[];
+rainDrops=[];
+hailstones=[];
+snowflakes=[];
+fires=[];
+fireWhirls=[];
+mudslides=[];
+poopslides=[];
+weatherSystems=[];
+
+if(hovels.length>150)hovels=hovels.slice(-150);
+if(dwellers.length>350)dwellers=dwellers.slice(-350);
+
+tsunami.active=false;
+tsunami.pos=-100;
+lightningFlash=0;
+screenShake=0;
+}
+
+function wipeMap(){
+dwellers=[];
+hovels=[];
+weatherSystems=[];
+fires=[];
+fireWhirls=[];
+particles=[];
+rainDrops=[];
+hailstones=[];
+snowflakes=[];
+mudslides=[];
+poopslides=[];
+
+tsunami.active=false;
+tsunami.pos=-100;
+lightningFlash=0;
+screenShake=0;
+}
+
+function updateFires(){
+fires.forEach(f=>{
+f.life--;
+f.size+=.015;
+
+const biome=getBiome(f.x,f.y);
+const dry=["Desert","Wasteland","Plains","Forest","Birch Forest","Lavender Fields"].includes(biome);
+
+if(dry&&Math.random()<.025){
+let nx=f.x+(Math.random()-.5)*45;
+let ny=f.y+(Math.random()-.5)*45;
+
+if(!isWater(nx,ny)){
+fires.push({
+x:nx,
+y:ny,
+size:6+Math.random()*7,
+life:250+Math.random()*150
+});
+}
+}
+
+dwellers=dwellers.filter(d=>{
+let safe=hovels.some(h=>h.kind==="shelter"&&Math.hypot(d.x-h.x,d.y-h.y)<10);
+return safe||Math.hypot(d.x-f.x,d.y-f.y)>f.size||d.type==="meteorologist";
+});
+
+hovels=hovels.filter(h=>Math.hypot(h.x-f.x,h.y-f.y)>f.size);
+
+if(Math.random()<.12){
+particles.push({
+x:f.x+(Math.random()-.5)*f.size,
+y:f.y+(Math.random()-.5)*f.size,
+vx:(Math.random()-.5)*.25,
+vy:-.4-Math.random()*.5,
+life:18+Math.random()*18,
+color:Math.random()<.5?"#ff4500":"#ffcc00",
+size:1+Math.random()*1.3
+});
+}
+});
+
+fires=fires.filter(f=>f.life>0);
+}
+
+function updateFireWhirls(){
+fireWhirls.forEach(w=>{
+w.x+=w.vx;
+w.y+=w.vy;
+w.life--;
+w.spin+=.2;
+
+if(w.x<0||w.x>MAP_SIZE)w.vx*=-1;
+if(w.y<0||w.y>MAP_SIZE)w.vy*=-1;
+
+dwellers=dwellers.filter(d=>Math.hypot(d.x-w.x,d.y-w.y)>28);
+hovels=hovels.filter(h=>Math.hypot(h.x-w.x,h.y-w.y)>24);
+
+particles.push({
+x:w.x+(Math.random()-.5)*25,
+y:w.y+(Math.random()-.5)*25,
+vx:(Math.random()-.5)*1,
+vy:-Math.random()*2,
+life:25,
+color:Math.random()<.5?"#ff4500":"#ffaa00",
+size:2
+});
+});
+
+fireWhirls=fireWhirls.filter(w=>w.life>0);
+}
+
+function updateSlides(){
+mudslides.forEach(m=>{
+m.x+=m.vx;
+m.y+=m.vy;
+m.life--;
+m.size+=.01;
+
+dwellers=dwellers.filter(d=>Math.hypot(d.x-m.x,d.y-m.y)>m.size);
+hovels=hovels.filter(h=>Math.hypot(h.x-m.x,h.y-m.y)>m.size);
+});
+
+poopslides.forEach(p=>{
+p.x+=p.vx;
+p.y+=p.vy;
+p.life--;
+p.size+=.015;
+
+dwellers=dwellers.filter(d=>Math.hypot(d.x-p.x,d.y-p.y)>p.size);
+hovels=hovels.filter(h=>Math.hypot(h.x-p.x,h.y-p.y)>p.size);
+});
+
+mudslides=mudslides.filter(m=>m.life>0&&m.x>=0&&m.x<=MAP_SIZE&&m.y>=0&&m.y<=MAP_SIZE);
+poopslides=poopslides.filter(p=>p.life>0&&p.x>=0&&p.x<=MAP_SIZE&&p.y>=0&&p.y<=MAP_SIZE);
+} function updateSimulation(){
+worldTick++;
+worldAge=getWorldAge();
+
+if(lightningFlash>0)lightningFlash--;
+if(screenShake>0)screenShake--;
+
+if(worldTick%720===0){
+dwellers.push(new Dweller(Math.random()*MAP_SIZE,Math.random()*MAP_SIZE));
+}
+
+if(worldAge==="Nuclear"&&worldTick%360===0){
+dwellers.push(new Dweller(Math.random()*MAP_SIZE,Math.random()*MAP_SIZE));
+}
+
+if(tsunami.active){
+tsunami.pos+=8;
+
+dwellers=dwellers.filter(d=>d.type==="meteorologist"||Math.abs(d.x-tsunami.pos)>42);
+hovels=hovels.filter(h=>Math.abs(h.x-tsunami.pos)>42);
+
+if(tsunami.pos>MAP_SIZE+200){
+tsunami.active=false;
+}
+}
+
+weatherSystems.forEach(s=>{
+s.x+=s.vx;
+s.y+=s.vy;
+s.life--;
+
+if(s.x<-80)s.x=MAP_SIZE+80;
+if(s.x>MAP_SIZE+80)s.x=-80;
+if(s.y<-80)s.y=MAP_SIZE+80;
+if(s.y>MAP_SIZE+80)s.y=-80;
+
+if(s.type==="supercell"){
+s.rotation+=.08;
+s.formTime--;
+
+if(Math.random()<.7){
+rainDrops.push({
+x:s.x+(Math.random()-.5)*160,
+y:s.y+(Math.random()-.5)*100,
+life:30
+});
+}
+
+if(Math.random()<.01){
+lightningFlash=8;
+}
+
+if(s.formTime<=0){
+s.type="tornado";
+s.life=2500;
+screenShake=10;
+}
+}
+
+if(s.type==="tornado"){
+screenShake=Math.max(screenShake,2);
+
+fires.forEach(f=>{
+if(Math.hypot(f.x-s.x,f.y-s.y)<45&&Math.random()<.02){
+spawnFireWhirl(f.x,f.y);
+f.life=0;
+}
+});
+
+dwellers=dwellers.filter(d=>d.type==="meteorologist"||Math.hypot(d.x-s.x,d.y-s.y)>35);
+hovels=hovels.filter(h=>Math.hypot(h.x-s.x,h.y-s.y)>38);
+
+if(Math.random()<.4){
+particles.push({
+x:s.x+(Math.random()-.5)*45,
+y:s.y+20,
+vx:(Math.random()-.5)*2,
+vy:-Math.random()*2,
+life:25,
+color:"#999",
+size:1+Math.random()*3
+});
+}
+}
+
+if(s.type==="thunder"){
+if(Math.random()<.006)lightningFlash=8;
+
+if(Math.random()<.7){
+rainDrops.push({
+x:s.x+(Math.random()-.5)*120,
+y:s.y+(Math.random()-.5)*80,
+life:30
+});
+}
+
+if(Math.random()<.01&&fires.length>0){
+fires.pop();
+}
+
+if(Math.random()<.004){
+triggerMudslide();
+}
+}
+
+if(s.type==="hailstorm"){
+if(Math.random()<.8){
+hailstones.push({
+x:s.x+(Math.random()-.5)*130,
+y:s.y+(Math.random()-.5)*90,
+vx:(Math.random()-.5)*1,
+vy:5+Math.random()*4,
+life:45
+});
+}
+
+dwellers=dwellers.filter(d=>Math.hypot(d.x-s.x,d.y-s.y)>22||Math.random()>.01);
+hovels=hovels.filter(h=>Math.hypot(h.x-s.x,h.y-s.y)>24||Math.random()>.004);
+}
+
+if(s.type==="blizzard"){
+if(Math.random()<.9){
+snowflakes.push({
+x:s.x+(Math.random()-.5)*160,
+y:s.y+(Math.random()-.5)*110,
+vx:-1.5+Math.random(),
+vy:1+Math.random()*2,
+life:70
+});
+}
+
+dwellers.forEach(d=>{
+if(Math.hypot(d.x-s.x,d.y-s.y)<90){
+d.x+=(Math.random()-.5)*.5;
+d.y+=(Math.random()-.5)*.5;
+}
+});
+
+if(Math.random()<.004){
+fires.pop();
+}
+}
+});
+
+weatherSystems=weatherSystems.filter(s=>s.life>0);
+
+updateFires();
+updateFireWhirls();
+updateSlides();
+
+dwellers.forEach(d=>d.update());
+
+particles.forEach(p=>{
+p.x+=p.vx;
+p.y+=p.vy;
+p.life--;
+p.vx*=.98;
+p.vy*=.98;
+});
+particles=particles.filter(p=>p.life>0);
+
+rainDrops.forEach(r=>{
+r.y+=9;
+r.x-=2;
+r.life--;
+});
+rainDrops=rainDrops.filter(r=>r.life>0);
+
+hailstones.forEach(h=>{
+h.x+=h.vx;
+h.y+=h.vy;
+h.life--;
+});
+hailstones=hailstones.filter(h=>h.life>0&&h.y<MAP_SIZE+20);
+
+snowflakes.forEach(s=>{
+s.x+=s.vx;
+s.y+=s.vy;
+s.life--;
+});
+snowflakes=snowflakes.filter(s=>s.life>0&&s.y<MAP_SIZE+20);
+
+if(particles.length>300){
+particles.splice(0,particles.length-300);
+}
+}
+
+function generate(){
+h1=new NoiseLayer();
+d1=new NoiseLayer();
+m1=new NoiseLayer();
+b1=new NoiseLayer();
+
+dwellers=[];
+hovels=[];
+weatherSystems=[];
+fires=[];
+fireWhirls=[];
+particles=[];
+rainDrops=[];
+hailstones=[];
+snowflakes=[];
+mudslides=[];
+poopslides=[];
+
+resources={wood:0,ore:0,bricks:0};
+
+worldTick=0;
+worldAge="Stone";
+tsunami.active=false;
+tsunami.pos=-100;
+lightningFlash=0;
+screenShake=0;
+
+mctx.fillStyle="#000";
+mctx.fillRect(0,0,MAP_SIZE,MAP_SIZE);
+
+for(let x=0;x<MAP_SIZE;x+=TILE_SIZE){
+for(let y=0;y<MAP_SIZE;y+=TILE_SIZE){
+let biome=getBiome(x,y);
+
+mctx.fillStyle=BiomeColors[biome]||"#000";
+mctx.fillRect(x,y,TILE_SIZE,TILE_SIZE);
+
+if(["Ocean","Deep Ocean"].includes(biome)&&Math.random()<.08){
+mctx.fillStyle="rgba(255,255,255,.08)";
+mctx.fillRect(x+1,y+1,2,1);
+}
+
+if(biome==="Coral Reef"&&Math.random()<.14){
+mctx.fillStyle=Math.random()<.5?"#ff7fbf":"#ffd166";
+mctx.fillRect(x+1,y+1,1,1);
+}
+
+if(["Flower Fields","Lavender Fields","Cherry Grove"].includes(biome)&&Math.random()<.12){
+mctx.fillStyle=biome==="Lavender Fields"?"#d9b3ff":biome==="Cherry Grove"?"#ffedf3":"#ffff66";
+mctx.fillRect(x+1,y+1,1,1);
+}
+
+if(["Forest","Jungle","Rainforest","Birch Forest"].includes(biome)&&Math.random()<.08){
+mctx.fillStyle="rgba(0,0,0,.18)";
+mctx.fillRect(x,y,TILE_SIZE,TILE_SIZE);
+}
+
+if(["Forest","Jungle","Rainforest","Birch Forest"].includes(biome)&&Math.random()<.05){
+mctx.fillStyle=biome==="Birch Forest"?"#e8ffe0":"#0d2d10";
+mctx.fillRect(x+2,y+1,1,2);
+}
+
+if(["Volcanic","Wasteland","Turd Mountain"].includes(biome)&&Math.random()<.05){
+mctx.fillStyle="#777";
+mctx.fillRect(x+1,y+1,2,2);
+}
+
+if(biome==="Volcanic"&&Math.random()<.05){
+mctx.fillStyle="#ff4500";
+mctx.fillRect(x+2,y+2,1,1);
+}
+
+if(biome==="Snow"&&Math.random()<.06){
+mctx.fillStyle="rgba(255,255,255,.6)";
+mctx.fillRect(x,y,2,1);
+}
+
+if(biome==="Ice"&&Math.random()<.07){
+mctx.fillStyle="rgba(160,220,255,.35)";
+mctx.fillRect(x+1,y+2,3,1);
+}
+}
+}
+
+let pop=Number(document.getElementById("popCfg").value);
+for(let i=0;i<pop;i++){
+dwellers.push(new Dweller(Math.random()*MAP_SIZE,Math.random()*MAP_SIZE));
+}
+
+initialized=true;
+}
+
+function drawCloud(s){
+let pulse=Math.sin(worldTick/20+s.x)*3;
+
+ctx.save();
+
+let stormy=s.type==="thunder"||s.type==="supercell"||s.type==="hailstorm"||s.type==="blizzard";
+
+ctx.fillStyle=stormy?"rgba(55,55,90,.48)":"rgba(210,210,230,.34)";
+ctx.shadowColor=stormy?"rgba(120,120,255,.5)":"rgba(255,255,255,.2)";
+ctx.shadowBlur=stormy?14:6;
+
+[[-32,0,28],[-12,-12,35],[15,-8,32],[35,4,25],[0,10,38]].forEach(b=>{
+ctx.beginPath();
+ctx.arc(s.x+b[0],s.y+b[1],b[2]+pulse,0,Math.PI*2);
+ctx.fill();
+});
+
+if(stormy){
+ctx.strokeStyle="rgba(160,160,255,.18)";
+ctx.lineWidth=2;
+ctx.beginPath();
+ctx.arc(s.x,s.y,58+Math.sin(worldTick/15)*3,0,Math.PI*2);
+ctx.stroke();
+}
+
+ctx.restore();
+}
+
+function drawTornado(s){
+ctx.save();
+ctx.translate(s.x,s.y);
+
+ctx.strokeStyle="rgba(230,230,230,.65)";
+ctx.lineWidth=3;
+
+for(let i=0;i<8;i++){
+let y=-55+i*14;
+let width=45-i*4;
+let spin=worldTick*.1+i;
+
+ctx.beginPath();
+ctx.ellipse(Math.sin(spin)*4,y,width,8,spin,0,Math.PI*2);
+ctx.stroke();
+
+ctx.strokeStyle=`rgba(${180+i*6},${180+i*6},${180+i*6},.45)`;
+}
+
+ctx.fillStyle="rgba(180,180,180,.20)";
+ctx.beginPath();
+ctx.moveTo(-42,-60);
+ctx.lineTo(42,-60);
+ctx.lineTo(12,50);
+ctx.lineTo(-12,50);
+ctx.closePath();
+ctx.fill();
+
+ctx.restore();
+}
+
+function drawSupercell(s){
+drawCloud({x:s.x,y:s.y,type:"supercell"});
+
+ctx.save();
+ctx.translate(s.x,s.y);
+
+ctx.strokeStyle="rgba(180,180,255,.55)";
+ctx.lineWidth=3;
+
+for(let i=0;i<5;i++){
+ctx.beginPath();
+ctx.ellipse(0,0,70-i*10,28-i*3,s.rotation+i,0,Math.PI*2);
+ctx.stroke();
+}
+
+ctx.fillStyle="rgba(140,140,255,.12)";
+ctx.beginPath();
+ctx.arc(0,0,80,0,Math.PI*2);
+ctx.fill();
+
+ctx.strokeStyle="rgba(255,255,255,.18)";
+ctx.beginPath();
+ctx.arc(0,0,85+Math.sin(worldTick/20)*5,0,Math.PI*2);
+ctx.stroke();
+
+ctx.restore();
+}
+
+function drawWeather(){
+weatherSystems.forEach(s=>{
+if(s.type==="supercell"){
+drawSupercell(s);
+}else if(s.type==="tornado"){
+drawCloud({x:s.x,y:s.y-70,type:"thunder"});
+drawTornado(s);
+}else{
+drawCloud(s);
+}
+});
+
+rainDrops.forEach(r=>{
+ctx.strokeStyle="rgba(120,170,255,.5)";
+ctx.beginPath();
+ctx.moveTo(r.x,r.y);
+ctx.lineTo(r.x-4,r.y+9);
+ctx.stroke();
+});
+
+hailstones.forEach(h=>{
+ctx.fillStyle="rgba(220,230,255,.95)";
+ctx.beginPath();
+ctx.arc(h.x,h.y,2.4,0,Math.PI*2);
+ctx.fill();
+
+ctx.strokeStyle="rgba(255,255,255,.5)";
+ctx.beginPath();
+ctx.arc(h.x,h.y,3.4,0,Math.PI*2);
+ctx.stroke();
+});
+
+snowflakes.forEach(s=>{
+ctx.fillStyle="rgba(240,255,255,.8)";
+ctx.fillRect(s.x,s.y,2,2);
+ctx.fillStyle="rgba(255,255,255,.35)";
+ctx.fillRect(s.x-1,s.y,4,1);
+});
+}
+
+function drawFires(){
+fires.forEach(f=>{
+let flicker=Math.random()*4;
+
+ctx.fillStyle="rgba(255,80,0,.45)";
+ctx.beginPath();
+ctx.arc(f.x,f.y,f.size+flicker,0,Math.PI*2);
+ctx.fill();
+
+ctx.fillStyle="rgba(255,220,0,.55)";
+ctx.beginPath();
+ctx.arc(f.x,f.y,f.size*.45,0,Math.PI*2);
+ctx.fill();
+
+ctx.fillStyle="rgba(50,50,50,.18)";
+ctx.beginPath();
+ctx.arc(f.x,f.y-f.size,f.size*.55,0,Math.PI*2);
+ctx.fill();
+});
+}
+
+function drawFireWhirls(){
+fireWhirls.forEach(w=>{
+ctx.save();
+ctx.translate(w.x,w.y);
+
+ctx.strokeStyle="rgba(255,90,0,.85)";
+ctx.lineWidth=3;
+
+for(let i=0;i<5;i++){
+ctx.beginPath();
+ctx.ellipse(Math.sin(w.spin+i)*4,-25+i*12,24-i*3,7,w.spin+i,0,Math.PI*2);
+ctx.stroke();
+}
+
+ctx.fillStyle="rgba(255,180,0,.25)";
+ctx.beginPath();
+ctx.moveTo(-20,-35);
+ctx.lineTo(20,-35);
+ctx.lineTo(8,35);
+ctx.lineTo(-8,35);
+ctx.closePath();
+ctx.fill();
+
+ctx.restore();
+});
+}
+
+function drawSlides(){
+mudslides.forEach(m=>{
+ctx.fillStyle="rgba(105,70,35,.75)";
+ctx.beginPath();
+ctx.arc(m.x,m.y,m.size,0,Math.PI*2);
+ctx.fill();
+
+ctx.fillStyle="rgba(60,35,20,.35)";
+ctx.beginPath();
+ctx.arc(m.x-4,m.y-3,m.size*.45,0,Math.PI*2);
+ctx.fill();
+});
+
+poopslides.forEach(p=>{
+ctx.fillStyle="rgba(70,35,12,.85)";
+ctx.beginPath();
+ctx.arc(p.x,p.y,p.size,0,Math.PI*2);
+ctx.fill();
+
+ctx.fillStyle="rgba(120,70,25,.35)";
+ctx.beginPath();
+ctx.arc(p.x-5,p.y-4,p.size*.45,0,Math.PI*2);
+ctx.fill();
+});
+}
+
+function drawParticles(){
+particles.forEach(p=>{
+ctx.fillStyle=p.color;
+ctx.globalAlpha=Math.max(0,p.life/60);
+ctx.fillRect(p.x,p.y,p.size,p.size);
+ctx.globalAlpha=1;
+});
+}
+
+function drawTsunami(){
+if(!tsunami.active)return;
+
+ctx.fillStyle="rgba(0,150,255,.45)";
+ctx.fillRect(tsunami.pos-65,0,65,MAP_SIZE);
+
+ctx.fillStyle="rgba(200,255,255,.55)";
+for(let y=0;y<MAP_SIZE;y+=20){
+ctx.beginPath();
+ctx.arc(tsunami.pos-20,y,8,0,Math.PI*2);
+ctx.fill();
+}
+
+ctx.strokeStyle="rgba(255,255,255,.45)";
+ctx.lineWidth=2;
+ctx.beginPath();
+ctx.moveTo(tsunami.pos-65,0);
+ctx.lineTo(tsunami.pos-65,MAP_SIZE);
+ctx.stroke();
+}
+
+function applyCamera(){
+ctx.translate(MAP_SIZE/2,MAP_SIZE/2);
+ctx.scale(camera.zoom,camera.zoom);
+ctx.translate(-MAP_SIZE/2-camera.x,-MAP_SIZE/2-camera.y);
+}
+
+function draw(){
+if(initialized){
+ctx.save();
+
+if(screenShake>0){
+ctx.translate((Math.random()-.5)*screenShake,(Math.random()-.5)*screenShake);
+}
+
+applyCamera();
+
+ctx.drawImage(mapCanvas,0,0);
+hovels.forEach(drawBuilding);
+dwellers.forEach(d=>d.draw());
+
+drawFires();
+drawFireWhirls();
+drawSlides();
+drawWeather();
+drawTsunami();
+drawParticles();
+
+if(lightningFlash>0){
+ctx.fillStyle="rgba(255,255,255,.75)";
+ctx.fillRect(0,0,MAP_SIZE,MAP_SIZE);
+}
+
+ctx.restore();
+
+updateSimulation();
+
+let status="NOMINAL";
+if(weatherSystems.some(s=>s.type==="tornado"))status="TORNADO WARNING";
+else if(weatherSystems.some(s=>s.type==="supercell"))status="SUPERCELL FORMING";
+else if(weatherSystems.some(s=>s.type==="hailstorm"))status="HAILSTORM";
+else if(weatherSystems.some(s=>s.type==="blizzard"))status="BLIZZARD";
+else if(weatherSystems.some(s=>s.type==="thunder"))status="STORM ACTIVE";
+else if(fireWhirls.length>0)status="FIRE WHIRL";
+else if(fires.length>0)status="WILDFIRE";
+else if(mudslides.length>0)status="MUDSLIDE";
+else if(poopslides.length>0)status="POOPSLIDE";
+else if(tsunami.active)status="TSUNAMI";
+
+document.getElementById("infoBar").innerText=
+`AGE: ${worldAge} | POP: ${dwellers.length} | BLD: ${hovels.length} | WOOD: ${resources.wood} | ORE: ${resources.ore} | BRICKS: ${resources.bricks} | FIRE: ${fires.length} | WEATHER: ${weatherSystems.length} | ZOOM: ${camera.zoom.toFixed(1)}x | TICK: ${worldTick} | STATUS: ${status}`;
+}
+
+requestAnimationFrame(draw);
+}
+
+function openConfig(){
+document.getElementById("worldConfig").style.display="block";
+}
+
+function closeConfig(){
+document.getElementById("worldConfig").style.display="none";
+}
+
+function spawnWeather(type){
+weatherSystems.push({
+x:Math.random()*MAP_SIZE,
+y:70+Math.random()*180,
+type,
+life:1200,
+vx:(Math.random()-.5)*1.4,
+vy:(Math.random()-.5)*.5
+});
+}
+
+function spawnTornadicSupercell(){
+weatherSystems.push({
+x:Math.random()*MAP_SIZE,
+y:140+Math.random()*180,
+type:"supercell",
+stage:"forming",
+life:3000,
+formTime:300,
+vx:.35,
+vy:.25,
+rotation:0
+});
+}
+
+function spawnDweller(){
+dwellers.push(new Dweller(Math.random()*MAP_SIZE,Math.random()*MAP_SIZE));
+}
+
+function zoomIn(){
+camera.zoom=Math.min(4,camera.zoom*1.2);
+}
+
+function zoomOut(){
+camera.zoom=Math.max(.5,camera.zoom/1.2);
+}
+
+function resetZoom(){
+camera.zoom=1;
+camera.x=0;
+camera.y=0;
+}
+
+canvas.addEventListener("wheel",e=>{
+e.preventDefault();
+if(e.deltaY<0)zoomIn();
+else zoomOut();
+});
+
+canvas.addEventListener("mousedown",e=>{
+camera.dragging=true;
+camera.lastX=e.clientX;
+camera.lastY=e.clientY;
+});
+
+window.addEventListener("mouseup",()=>{
+camera.dragging=false;
+});
+
+window.addEventListener("mousemove",e=>{
+if(camera.dragging){
+camera.x-=(e.clientX-camera.lastX)/camera.zoom;
+camera.y-=(e.clientY-camera.lastY)/camera.zoom;
+camera.lastX=e.clientX;
+camera.lastY=e.clientY;
+}
+});
+
+canvas.addEventListener("touchstart",e=>{
+if(e.touches.length===1){
+camera.dragging=true;
+camera.lastX=e.touches[0].clientX;
+camera.lastY=e.touches[0].clientY;
+}
+if(e.touches.length===2){
+camera.dragging=false;
+let dx=e.touches[0].clientX-e.touches[1].clientX;
+let dy=e.touches[0].clientY-e.touches[1].clientY;
+camera.pinchDistance=Math.hypot(dx,dy);
+}
+});
+
+canvas.addEventListener("touchmove",e=>{
+e.preventDefault();
+
+if(e.touches.length===1&&camera.dragging){
+camera.x-=(e.touches[0].clientX-camera.lastX)/camera.zoom;
+camera.y-=(e.touches[0].clientY-camera.lastY)/camera.zoom;
+camera.lastX=e.touches[0].clientX;
+camera.lastY=e.touches[0].clientY;
+}
+
+if(e.touches.length===2){
+let dx=e.touches[0].clientX-e.touches[1].clientX;
+let dy=e.touches[0].clientY-e.touches[1].clientY;
+let dist=Math.hypot(dx,dy);
+
+if(dist>camera.pinchDistance+5)zoomIn();
+if(dist<camera.pinchDistance-5)zoomOut();
+
+camera.pinchDistance=dist;
+}
+},{passive:false});
+
+window.addEventListener("touchend",()=>{
+camera.dragging=false;
+});
+
+window.addEventListener("keydown",e=>{
+if(e.key==="+"||e.key==="=")zoomIn();
+if(e.key==="-"||e.key==="_")zoomOut();
+if(e.key==="0")resetZoom();
+
+const move=20/camera.zoom;
+
+if(e.key==="ArrowUp"||e.key.toLowerCase()==="w")camera.y-=move;
+if(e.key==="ArrowDown"||e.key.toLowerCase()==="s")camera.y+=move;
+if(e.key==="ArrowLeft"||e.key.toLowerCase()==="a")camera.x-=move;
+if(e.key==="ArrowRight"||e.key.toLowerCase()==="d")camera.x+=move;
+});
+
+canvas.addEventListener("click",e=>{
+const rect=canvas.getBoundingClientRect();
+const screenX=((e.clientX-rect.left)/rect.width)*MAP_SIZE;
+const screenY=((e.clientY-rect.top)/rect.height)*MAP_SIZE;
+
+const x=(screenX-MAP_SIZE/2)/camera.zoom+MAP_SIZE/2+camera.x;
+const y=(screenY-MAP_SIZE/2)/camera.zoom+MAP_SIZE/2+camera.y;
+
+for(let i=0;i<5;i++){
+dwellers.push(new Dweller(x+(Math.random()-.5)*20,y+(Math.random()-.5)*20));
+}
+});
+
+generate();
+draw();
 </script>
 </body>
 </html>
-
